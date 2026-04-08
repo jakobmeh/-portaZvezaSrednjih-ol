@@ -1,0 +1,23 @@
+{
+  "scripts": {
+    "dev": "npm --prefix szss run dev",
+    "build": "npm --prefix szss run build",
+    "build:web": "npm --prefix szss run build",
+    "start": "npm --prefix szss run start",
+    "start:web": "npm --prefix szss run start",
+    "lint:web": "npm --prefix szss run lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.mjs"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.7.0",
+    "@prisma/client": "^7.7.0",
+    "bcryptjs": "^3.0.2",
+    "pg": "^8.16.3",
+    "prisma": "^7.7.0"
+  }
+}
