@@ -9,16 +9,24 @@ declare global {
   var __schoolHubPrisma__: PrismaClient | undefined;
 }
 
-dotenv.config({ path: path.resolve(process.cwd(), "../.env"), quiet: true });
+if (!process.env.VERCEL) {
+  dotenv.config({ path: path.resolve(process.cwd(), ".env"), quiet: true });
+  dotenv.config({ path: path.resolve(process.cwd(), "../.env"), quiet: true });
+}
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? "";
+
+if (!connectionString) {
+  throw new Error("Missing DIRECT_URL or DATABASE_URL environment variable.");
+}
+
 const adapter = new PrismaPg({ connectionString });
 
 export const prisma =
   global.__schoolHubPrisma__ ??
   new PrismaClient({
     adapter,
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    log: ["error"],
   });
 
 if (process.env.NODE_ENV !== "production") {
