@@ -409,14 +409,8 @@ export default async function HomePage({
                             </option>
                           ))}
                         </select>
-                        <select
-                          name="role"
-                          defaultValue="PARTICIPANT"
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                        >
-                          <option value="PARTICIPANT">Dijak / udeleženec</option>
-                          <option value="ORGANIZER">Učitelj / organizator</option>
-                        </select>
+
+
                         <input
                           name="schoolCard"
                           type="file"

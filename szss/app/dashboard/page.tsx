@@ -29,7 +29,7 @@ export default async function DashboardPage() {
           >
             Razišči turnirje
           </Link>
-          {user.role !== "PARTICIPANT" ? (
+          {user.role === "ADMIN" ? (
             <Link
               href="/tournaments/create"
               className="rounded-2xl bg-[#2BAF3A] px-4 py-3 text-sm font-semibold text-white"

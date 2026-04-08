@@ -10,7 +10,7 @@ export default async function CreateTournamentPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const user = await requireUser();
-  if (user.role === "PARTICIPANT") {
+  if (user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 

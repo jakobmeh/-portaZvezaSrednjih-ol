@@ -34,7 +34,6 @@ async function upsertUser({ email, fullName, role, passwordHash, schoolName }) {
 
 async function main() {
   const adminPassword = await bcrypt.hash("Admin123!", 10);
-  const organizerPassword = await bcrypt.hash("Organizer123!", 10);
   const participantPassword = await bcrypt.hash("Dijak123!", 10);
 
   const admin = await upsertUser({
@@ -42,14 +41,6 @@ async function main() {
     fullName: "Admin ŠZSŠ",
     role: UserRole.ADMIN,
     passwordHash: adminPassword,
-    schoolName: DEMO_SCHOOL,
-  });
-
-  const organizer = await upsertUser({
-    email: "sportni.mentor@szss.si",
-    fullName: "Matej Novak",
-    role: UserRole.ORGANIZER,
-    passwordHash: organizerPassword,
     schoolName: DEMO_SCHOOL,
   });
 
@@ -115,11 +106,11 @@ async function main() {
       where: { slug: tournament.slug },
       update: {
         ...tournament,
-        organizerId: organizer.id,
+        organizerId: admin.id,
       },
       create: {
         ...tournament,
-        organizerId: organizer.id,
+        organizerId: admin.id,
       },
     });
   }
@@ -134,18 +125,18 @@ async function main() {
       name: "SCK Volkovi",
       sport: "Futsal",
       schoolName: DEMO_SCHOOL,
-      createdById: organizer.id,
+      createdById: admin.id,
     },
     create: {
       id: "team-sck-volkovi",
       name: "SCK Volkovi",
       sport: "Futsal",
       schoolName: DEMO_SCHOOL,
-      createdById: organizer.id,
+      createdById: admin.id,
     },
   });
 
-  const memberships = [organizer, participant, schoolmate1, schoolmate2];
+  const memberships = [admin, participant, schoolmate1, schoolmate2];
   for (const member of memberships) {
     const exists = await prisma.teamMember.findFirst({
       where: {
@@ -206,7 +197,7 @@ async function main() {
 
   const notificationExists = await prisma.notification.findFirst({
     where: {
-      userId: organizer.id,
+      userId: admin.id,
       title: "Nova prijava ekipe",
     },
   });
@@ -215,7 +206,7 @@ async function main() {
     await prisma.notification.createMany({
       data: [
         {
-          userId: organizer.id,
+          userId: admin.id,
           title: "Nova prijava ekipe",
           content: "Ekipa SCK Volkovi je prijavljena na Pomladni futsal pokal.",
         },
@@ -236,7 +227,7 @@ async function main() {
   const messageExists = await prisma.message.findFirst({
     where: {
       tournamentId: futsal.id,
-      senderId: organizer.id,
+      senderId: admin.id,
     },
   });
 
@@ -244,8 +235,8 @@ async function main() {
     await prisma.message.create({
       data: {
         tournamentId: futsal.id,
-        senderId: organizer.id,
-        senderName: organizer.fullName,
+        senderId: admin.id,
+        senderName: admin.fullName,
         content:
           "Pozdravljeni, prosim potrdite prihod ekip do 8:30. Garderobe bodo odprte ob 8:00.",
       },

@@ -14,7 +14,7 @@ import { getRoleLabel } from "@/lib/utils";
 
 type ShellUser = {
   fullName: string;
-  role: "ADMIN" | "ORGANIZER" | "PARTICIPANT";
+  role: "ADMIN" | "PARTICIPANT";
   schoolName: string;
 };
 

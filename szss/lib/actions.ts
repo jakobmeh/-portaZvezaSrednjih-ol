@@ -101,7 +101,6 @@ export async function registerAction(formData: FormData) {
   const email = getString(formData, "email").toLowerCase();
   const password = getString(formData, "password");
   const schoolName = getString(formData, "schoolName");
-  const roleInput = getString(formData, "role");
   const schoolCard = formData.get("schoolCard");
 
   if (!fullName || !email || !password || !schoolName) {
@@ -147,7 +146,7 @@ export async function registerAction(formData: FormData) {
       passwordHash,
       schoolName,
       schoolCardImage,
-      role: roleInput === "ORGANIZER" ? UserRole.ORGANIZER : UserRole.PARTICIPANT,
+      role: UserRole.PARTICIPANT,
       approvalStatus: ApprovalStatus.PENDING,
     },
   });
@@ -177,7 +176,7 @@ export async function logoutAction() {
 
 export async function createTournamentAction(formData: FormData) {
   const user = await requireUser();
-  if (user.role === "PARTICIPANT") {
+  if (user.role !== "ADMIN") {
     redirect("/dashboard");
   }
 

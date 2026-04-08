@@ -52,8 +52,6 @@ export function getRoleLabel(role: UserRole) {
   switch (role) {
     case "ADMIN":
       return "Admin";
-    case "ORGANIZER":
-      return "Organizator";
     default:
       return "Udeleženec";
   }
