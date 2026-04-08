@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { AppShell } from "@/components/app-shell";
 import { approveUserAction, rejectUserAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/auth";
@@ -32,11 +31,10 @@ export default async function AdminPage() {
                       <p className="mt-1 text-sm text-slate-600">{getRoleLabel(pending.role)}</p>
                     </div>
                     {pending.schoolCardImage ? (
-                      <Image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
                         src={pending.schoolCardImage}
                         alt={`Šolska kartica ${pending.fullName}`}
-                        width={224}
-                        height={128}
                         className="h-32 w-56 rounded-2xl object-cover"
                       />
                     ) : null}

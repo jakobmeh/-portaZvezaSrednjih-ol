@@ -3,6 +3,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { put } from "@vercel/blob";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,6 +12,9 @@ import { prisma } from "./prisma";
 import { createSession, destroySession, requireAdmin, requireUser } from "./auth";
 import { slugify } from "./utils";
 import { isSchoolOption } from "./schools";
+
+const MAX_SCHOOL_CARD_SIZE = 4.5 * 1024 * 1024;
+const ALLOWED_SCHOOL_CARD_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function getString(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -26,7 +30,7 @@ function authTarget(formData: FormData, modal: "login" | "register") {
   return redirectTo === "/" ? `/?modal=${modal}` : `/${modal}`;
 }
 
-async function saveSchoolCard(file: File) {
+async function saveSchoolCardLocally(file: File) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const extension = path.extname(file.name) || ".jpg";
   const filename = `${randomUUID()}${extension}`;
@@ -34,6 +38,35 @@ async function saveSchoolCard(file: File) {
   await mkdir(uploadDir, { recursive: true });
   await writeFile(path.join(uploadDir, filename), bytes);
   return `/uploads/cards/${filename}`;
+}
+
+async function saveSchoolCard(file: File) {
+  const extension = path.extname(file.name) || ".jpg";
+  const safeName = `${randomUUID()}${extension}`;
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`school-cards/${safeName}`, file, {
+      access: "public",
+      addRandomSuffix: false,
+    });
+    return blob.url;
+  }
+
+  return saveSchoolCardLocally(file);
+}
+
+function validateSchoolCard(file: File, target: string) {
+  if (file.size === 0) {
+    redirectWithMessage(target, "error", "Naloži sliko šolske kartice.");
+  }
+
+  if (file.size > MAX_SCHOOL_CARD_SIZE) {
+    redirectWithMessage(target, "error", "Slika kartice je prevelika. Največja dovoljena velikost je 4.5 MB.");
+  }
+
+  if (!ALLOWED_SCHOOL_CARD_TYPES.has(file.type)) {
+    redirectWithMessage(target, "error", "Dovoljene so samo slike JPG, PNG ali WEBP.");
+  }
 }
 
 export async function loginAction(formData: FormData) {
@@ -79,9 +112,11 @@ export async function registerAction(formData: FormData) {
     redirectWithMessage(target, "error", "Izberi veljavno srednjo šolo s seznama.");
   }
 
-  if (!(schoolCard instanceof File) || schoolCard.size === 0) {
+  if (!(schoolCard instanceof File)) {
     redirectWithMessage(target, "error", "Naloži sliko šolske kartice.");
   }
+
+  validateSchoolCard(schoolCard, target);
 
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -91,7 +126,18 @@ export async function registerAction(formData: FormData) {
     redirectWithMessage(target, "error", "Ta e-poštni naslov je že uporabljen.");
   }
 
-  const schoolCardImage = await saveSchoolCard(schoolCard);
+  let schoolCardImage: string;
+
+  try {
+    schoolCardImage = await saveSchoolCard(schoolCard);
+  } catch {
+    redirectWithMessage(
+      target,
+      "error",
+      "Nalagalnik kartic trenutno ni na voljo. Poskusi znova čez nekaj trenutkov.",
+    );
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
   await prisma.user.create({
@@ -287,7 +333,11 @@ export async function leaveTeamAction(formData: FormData) {
   }
 
   if (team.createdById === user.id) {
-    redirectWithMessage("/teams", "error", "Ustvarjalec ekipe ne more zapustiti svoje ekipe brez prenosa lastništva.");
+    redirectWithMessage(
+      "/teams",
+      "error",
+      "Ustvarjalec ekipe ne more zapustiti svoje ekipe brez prenosa lastništva.",
+    );
   }
 
   await prisma.teamMember.delete({
