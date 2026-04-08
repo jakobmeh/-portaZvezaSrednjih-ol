@@ -33,7 +33,8 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{
     modal?: string;
-    error?: string;
+    loginError?: string;
+    registerError?: string;
     registered?: string;
     q?: string;
     sport?: string;
@@ -314,9 +315,9 @@ export default async function HomePage({
                         </div>
                       ) : null}
 
-                      {params.error ? (
+                      {params.loginError ? (
                         <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                          {params.error}
+                          {params.loginError}
                         </div>
                       ) : null}
 
@@ -365,9 +366,9 @@ export default async function HomePage({
                         odobritev.
                       </p>
 
-                      {params.error ? (
+                      {params.registerError ? (
                         <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                          {params.error}
+                          {params.registerError}
                         </div>
                       ) : null}
 

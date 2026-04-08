@@ -21,8 +21,10 @@ function getString(formData: FormData, key: string) {
 }
 
 function redirectWithMessage(pathname: string, key: string, message: string): never {
-  const params = new URLSearchParams({ [key]: message });
-  redirect(`${pathname}?${params.toString()}`);
+  const [basePath, queryString] = pathname.split("?", 2);
+  const params = new URLSearchParams(queryString ?? "");
+  params.set(key, message);
+  redirect(`${basePath}?${params.toString()}`);
 }
 
 function authTarget(formData: FormData, modal: "login" | "register") {
@@ -79,16 +81,28 @@ export async function loginAction(formData: FormData) {
   });
 
   if (!user) {
-    redirectWithMessage(target, "error", "Ni uporabnika s tem e-poštnim naslovom.");
+    redirectWithMessage(target, "loginError", "Ni uporabnika s tem e-poštnim naslovom.");
   }
 
   const isValid = await bcrypt.compare(password, user.passwordHash);
   if (!isValid) {
-    redirectWithMessage(target, "error", "Napačno geslo.");
+    redirectWithMessage(target, "loginError", "Napačno geslo.");
   }
 
-  if (user.approvalStatus !== ApprovalStatus.APPROVED) {
-    redirectWithMessage(target, "error", "Tvoj račun še ni odobren s strani admina.");
+  if (user.approvalStatus === ApprovalStatus.PENDING) {
+    redirectWithMessage(
+      target,
+      "loginError",
+      "Tvoj račun še ni potrjen. Počakaj na odobritev administratorja.",
+    );
+  }
+
+  if (user.approvalStatus === ApprovalStatus.REJECTED) {
+    redirectWithMessage(
+      target,
+      "loginError",
+      "Tvoja registracija je bila zavrnjena. Za pomoč kontaktiraj administratorja.",
+    );
   }
 
   await createSession(user.id);
@@ -104,15 +118,15 @@ export async function registerAction(formData: FormData) {
   const schoolCard = formData.get("schoolCard");
 
   if (!fullName || !email || !password || !schoolName) {
-    redirectWithMessage(target, "error", "Izpolni vsa obvezna polja.");
+    redirectWithMessage(target, "registerError", "Izpolni vsa obvezna polja.");
   }
 
   if (!isSchoolOption(schoolName)) {
-    redirectWithMessage(target, "error", "Izberi veljavno srednjo šolo s seznama.");
+    redirectWithMessage(target, "registerError", "Izberi veljavno srednjo šolo s seznama.");
   }
 
   if (!(schoolCard instanceof File)) {
-    redirectWithMessage(target, "error", "Naloži sliko šolske kartice.");
+    redirectWithMessage(target, "registerError", "Naloži sliko šolske kartice.");
   }
 
   validateSchoolCard(schoolCard, target);
@@ -122,7 +136,7 @@ export async function registerAction(formData: FormData) {
   });
 
   if (existing) {
-    redirectWithMessage(target, "error", "Ta e-poštni naslov je že uporabljen.");
+    redirectWithMessage(target, "registerError", "Ta e-poštni naslov je že uporabljen.");
   }
 
   let schoolCardImage: string;
@@ -132,7 +146,7 @@ export async function registerAction(formData: FormData) {
   } catch {
     redirectWithMessage(
       target,
-      "error",
+      "registerError",
       "Nalagalnik kartic trenutno ni na voljo. Poskusi znova čez nekaj trenutkov.",
     );
   }
