@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "prisma generate --schema ../prisma/schema.prisma",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "prisma generate --schema ../prisma/schema.prisma"
+    "lint": "eslint"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.7.0",
