@@ -59,15 +59,15 @@ async function saveSchoolCard(file: File) {
 
 function validateSchoolCard(file: File, target: string) {
   if (file.size === 0) {
-    redirectWithMessage(target, "error", "Naloži sliko šolske kartice.");
+    redirectWithMessage(target, "registerError", "Naloži sliko šolske kartice.");
   }
 
   if (file.size > MAX_SCHOOL_CARD_SIZE) {
-    redirectWithMessage(target, "error", "Slika kartice je prevelika. Največja dovoljena velikost je 4.5 MB.");
+    redirectWithMessage(target, "registerError", "Slika kartice je prevelika. Največja dovoljena velikost je 4.5 MB.");
   }
 
   if (!ALLOWED_SCHOOL_CARD_TYPES.has(file.type)) {
-    redirectWithMessage(target, "error", "Dovoljene so samo slike JPG, PNG ali WEBP.");
+    redirectWithMessage(target, "registerError", "Dovoljene so samo slike JPG, PNG ali WEBP.");
   }
 }
 
@@ -139,11 +139,14 @@ export async function registerAction(formData: FormData) {
     redirectWithMessage(target, "registerError", "Ta e-poštni naslov je že uporabljen.");
   }
 
-  let schoolCardImage: string;
-
+  let schoolCardImage: string | null = null;
   try {
     schoolCardImage = await saveSchoolCard(schoolCard);
   } catch {
+    // redirect must be called outside try/catch (Next.js docs)
+  }
+
+  if (!schoolCardImage) {
     redirectWithMessage(
       target,
       "registerError",
