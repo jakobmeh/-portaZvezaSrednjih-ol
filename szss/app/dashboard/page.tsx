@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarDays, Users, Trophy, School, ChevronRight, Bell, ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { requireUser } from "@/lib/auth";
@@ -19,73 +20,141 @@ export default async function DashboardPage() {
         <>
           <Link
             href="/school"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow"
           >
             Moja šola
           </Link>
           <Link
             href="/tournaments"
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow"
           >
             Razišči turnirje
           </Link>
           {user.role === "ADMIN" ? (
             <Link
               href="/tournaments/create"
-              className="rounded-2xl bg-[#2BAF3A] px-4 py-3 text-sm font-semibold text-white"
+              className="rounded-2xl bg-[#2BAF3A] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#2BAF3A]/30 transition hover:bg-[#249933]"
             >
-              Ustvari turnir
+              + Ustvari turnir
             </Link>
           ) : null}
         </>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Prihajajoči turnirji", String(data.stats.tournaments)],
-          ["Moje prijave", String(data.stats.joined)],
-          ["Moje ekipe", String(data.stats.teams)],
-          ["Moja šola", String(data.stats.schoolmates)],
-        ].map(([title, value]) => (
-          <div key={title} className="rounded-[26px] bg-[#f5f8fc] p-5">
-            <p className="text-sm text-slate-500">{title}</p>
-            <p className="mt-3 text-4xl font-black text-[#0A2C57]">{value}</p>
+      {/* Stat Cards */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Link
+          href="/tournaments"
+          className="group relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0A2C57] to-[#1a4a8a] p-6 text-white shadow-lg shadow-[#0A2C57]/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0A2C57]/25"
+        >
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-white/15 p-2.5">
+              <CalendarDays size={18} />
+            </div>
+            <ChevronRight size={15} className="text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
           </div>
-        ))}
+          <p className="mt-5 text-[2.8rem] font-black leading-none">{data.stats.tournaments}</p>
+          <p className="mt-2 text-sm font-bold text-white/90">Prihajajoči turnirji</p>
+          <p className="mt-0.5 text-xs text-white/50">Turnirji, ki se bodo kmalu začeli</p>
+          <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/5" />
+        </Link>
+
+        <Link
+          href="/tournaments"
+          className="group relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#2BAF3A] to-[#1d8a2a] p-6 text-white shadow-lg shadow-[#2BAF3A]/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#2BAF3A]/30"
+        >
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-white/20 p-2.5">
+              <Trophy size={18} />
+            </div>
+            <ChevronRight size={15} className="text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
+          </div>
+          <p className="mt-5 text-[2.8rem] font-black leading-none">{data.stats.joined}</p>
+          <p className="mt-2 text-sm font-bold text-white/90">Moje prijave</p>
+          <p className="mt-0.5 text-xs text-white/60">Prijave tvojih ekip na turnirje</p>
+          <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/8" />
+        </Link>
+
+        <Link
+          href="/teams"
+          className="group relative overflow-hidden rounded-[24px] bg-gradient-to-br from-amber-400 to-amber-500 p-6 text-white shadow-lg shadow-amber-400/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-amber-400/30"
+        >
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-white/20 p-2.5">
+              <Users size={18} />
+            </div>
+            <ChevronRight size={15} className="text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
+          </div>
+          <p className="mt-5 text-[2.8rem] font-black leading-none">{data.stats.teams}</p>
+          <p className="mt-2 text-sm font-bold text-white/90">Moje ekipe</p>
+          <p className="mt-0.5 text-xs text-white/65">Ekipe, ki jih upravljaš</p>
+          <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/8" />
+        </Link>
+
+        <Link
+          href="/school"
+          className="group relative overflow-hidden rounded-[24px] bg-gradient-to-br from-violet-500 to-violet-600 p-6 text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-violet-500/30"
+        >
+          <div className="flex items-center justify-between">
+            <div className="rounded-xl bg-white/20 p-2.5">
+              <School size={18} />
+            </div>
+            <ChevronRight size={15} className="text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
+          </div>
+          <p className="mt-5 text-[2.8rem] font-black leading-none">{data.stats.schoolmates}</p>
+          <p className="mt-2 text-sm font-bold text-white/90">Člani šole</p>
+          <p className="mt-0.5 text-xs text-white/60">Potrjeni uporabniki iz tvoje šole</p>
+          <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/8" />
+        </Link>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-6">
+      {/* Main grid */}
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
+
+        {/* Tournaments list */}
+        <section className="rounded-[26px] border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl tracking-tight text-[#0A2C57]">Prihajajoči turnirji</h2>
-            <Link href="/tournaments" className="text-sm font-semibold text-[#2BAF3A]">
-              Poglej vse
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-[#0A2C57]/8 p-2.5">
+                <CalendarDays size={17} className="text-[#0A2C57]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Prihajajoči turnirji</h2>
+                <p className="text-xs text-slate-400">Turnirji, ki se bodo kmalu začeli</p>
+              </div>
+            </div>
+            <Link
+              href="/tournaments"
+              className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-[#2BAF3A] transition hover:bg-[#f0fdf4] hover:border-[#2BAF3A]/30"
+            >
+              Vsi turnirji <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="mt-5 space-y-4">
+
+          <div className="mt-5 space-y-3">
             {data.upcoming.map((tournament) => (
               <Link
                 key={tournament.id}
                 href={`/tournaments/${tournament.slug}`}
-                className="block rounded-[24px] border border-slate-200 p-5 hover:border-[#2BAF3A]"
+                className="group block rounded-[18px] border border-slate-100 p-5 transition hover:border-[#2BAF3A]/30 hover:bg-[#f9fffe] hover:shadow-sm"
               >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#2BAF3A]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
                       {tournament.sport}
                     </p>
-                    <h3 className="mt-2 text-xl font-semibold text-[#0A2C57]">
+                    <h3 className="mt-1.5 truncate text-base font-bold text-[#0A2C57]">
                       {tournament.title}
                     </h3>
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="mt-1 text-xs text-slate-500">
                       {formatDate(tournament.date)} · {tournament.location}
                     </p>
                   </div>
                   <StatusBadge label={tournament.status} />
                 </div>
-                <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
-                  <span>Organizator: {tournament.organizer.fullName}</span>
-                  <span>
+                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <span className="text-xs text-slate-400">Org: {tournament.organizer.fullName}</span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
                     {tournament.registrations.length}/{tournament.maxTeams} ekip
                   </span>
                 </div>
@@ -94,80 +163,134 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        <section className="space-y-6">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-6">
-            <h2 className="text-2xl tracking-tight text-[#0A2C57]">Obvestila</h2>
-            <div className="mt-5 space-y-4">
+        {/* Right column */}
+        <div className="flex flex-col gap-5">
+
+          {/* Notifications */}
+          <section className="rounded-[26px] border border-slate-100 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-amber-50 p-2.5">
+                <Bell size={17} className="text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Obvestila</h2>
+                <p className="text-xs text-slate-400">Zadnje novosti in prijave</p>
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
               {data.notifications.map((item) => (
-                <div key={item.id} className="rounded-[24px] bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-[#0A2C57]">{item.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.content}</p>
+                <div key={item.id} className="rounded-[16px] border border-slate-100 bg-slate-50/80 p-4">
+                  <p className="text-sm font-bold text-[#0A2C57]">{item.title}</p>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-500">{item.content}</p>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white p-6">
-            <h2 className="text-2xl tracking-tight text-[#0A2C57]">Moji turnirji</h2>
-            <div className="mt-5 space-y-4">
+          {/* My registrations */}
+          <section className="rounded-[26px] border border-slate-100 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-[#2BAF3A]/10 p-2.5">
+                <Trophy size={17} className="text-[#2BAF3A]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Moje prijave</h2>
+                <p className="text-xs text-slate-400">Turnirji, na katere si prijavil ekipe</p>
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
               {data.myRegistrations.length > 0 ? (
                 data.myRegistrations.map((registration) => (
-                  <div key={registration.id} className="rounded-[24px] bg-slate-50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold text-[#0A2C57]">{registration.tournament.title}</p>
-                      <span className="rounded-full bg-[#e8f8ea] px-3 py-1 text-xs font-semibold text-[#228f2f]">
+                  <div key={registration.id} className="rounded-[16px] border border-slate-100 bg-slate-50/80 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-bold leading-tight text-[#0A2C57]">{registration.tournament.title}</p>
+                      <span className="shrink-0 rounded-full bg-[#e8f8ea] px-2.5 py-0.5 text-[11px] font-bold text-[#228f2f]">
                         {getRegistrationLabel(registration.status)}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">
-                      Ekipa: {registration.team.name} · {formatCompactDate(registration.tournament.date)}
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      <span className="font-semibold text-slate-600">{registration.team.name}</span>
+                      {" · "}{formatCompactDate(registration.tournament.date)}
                     </p>
                   </div>
                 ))
               ) : (
-                <p className="rounded-[24px] bg-slate-50 p-4 text-sm text-slate-600">
-                  Še nisi prijavil ekipe na noben turnir.
-                </p>
+                <div className="rounded-[16px] border border-dashed border-slate-200 p-5 text-center">
+                  <Trophy size={22} className="mx-auto text-slate-300" />
+                  <p className="mt-2 text-sm font-semibold text-slate-400">Še ni prijav na turnirje</p>
+                  <Link href="/tournaments" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-[#2BAF3A]">
+                    Razišči turnirje <ArrowRight size={11} />
+                  </Link>
+                </div>
               )}
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-6">
+      {/* Bottom grid */}
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+
+        {/* My teams */}
+        <section className="rounded-[26px] border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl tracking-tight text-[#0A2C57]">Moje ekipe</h2>
-            <Link href="/teams" className="text-sm font-semibold text-[#2BAF3A]">
-              Upravljanje ekip
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-amber-50 p-2.5">
+                <Users size={17} className="text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Moje ekipe</h2>
+                <p className="text-xs text-slate-400">Ekipe, ki jih upravljaš</p>
+              </div>
+            </div>
+            <Link
+              href="/teams"
+              className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-[#2BAF3A] transition hover:bg-[#f0fdf4] hover:border-[#2BAF3A]/30"
+            >
+              Upravljaj <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 space-y-3">
             {data.teams.map((team) => (
-              <div key={team.id} className="rounded-[24px] bg-slate-50 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-[#0A2C57]">{team.name}</p>
-                  <span className="text-sm text-slate-500">{team.sport}</span>
+              <div key={team.id} className="flex items-center justify-between rounded-[16px] border border-slate-100 bg-slate-50/80 p-4">
+                <div>
+                  <p className="font-bold text-[#0A2C57]">{team.name}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    <span className="font-semibold text-slate-600">{team.players.length} članov</span>
+                    {" · "}<span className="font-semibold text-slate-600">{team.registrations.length} prijav</span>
+                  </p>
                 </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  {team.players.length} članov · {team.registrations.length} prijav
-                </p>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">{team.sport}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-6">
+        {/* My school */}
+        <section className="rounded-[26px] border border-slate-100 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl tracking-tight text-[#0A2C57]">Moja šola</h2>
-            <Link href="/school" className="text-sm font-semibold text-[#2BAF3A]">
-              Odpri
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-violet-50 p-2.5">
+                <School size={17} className="text-violet-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Moja šola</h2>
+                <p className="text-xs text-slate-400">Podatki o tvoji šoli v aplikaciji</p>
+              </div>
+            </div>
+            <Link
+              href="/school"
+              className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-[#2BAF3A] transition hover:bg-[#f0fdf4] hover:border-[#2BAF3A]/30"
+            >
+              Odpri <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="mt-5 rounded-[24px] bg-slate-50 p-5">
-            <p className="font-semibold text-[#0A2C57]">{data.currentUser.schoolName}</p>
+          <div className="mt-5 rounded-[18px] bg-gradient-to-br from-violet-50 to-violet-100/60 p-5 ring-1 ring-violet-200/50">
+            <p className="font-black text-[#0A2C57]">{data.currentUser.schoolName}</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              V aplikaciji je trenutno {data.stats.schoolmates} potrjenih uporabnikov iz tvoje šole.
+              V aplikaciji je trenutno{" "}
+              <span className="font-black text-violet-700">{data.stats.schoolmates} potrjenih uporabnikov</span>
+              {" "}iz tvoje šole.
             </p>
           </div>
         </section>

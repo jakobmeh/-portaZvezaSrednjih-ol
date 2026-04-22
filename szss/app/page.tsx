@@ -1,32 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, CalendarDays, MapPin, ShieldCheck, Trophy, Users2 } from "lucide-react";
+import { ArrowRight, CalendarDays, MapPin, ShieldCheck, Trophy, Users, Users2 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { loginAction, registerAction } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { getTournamentList } from "@/lib/data";
 import { SCHOOL_OPTIONS } from "@/lib/schools";
 import { SPORTS, formatDate } from "@/lib/utils";
-
-function MainCta() {
-  return (
-    <div className="mt-8 flex flex-wrap gap-4">
-      <Link
-        href="/?modal=register"
-        className="inline-flex items-center gap-2 rounded-2xl bg-[#2BAF3A] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2BAF3A]/25 hover:bg-[#249933]"
-      >
-        Ustvari račun
-        <ArrowRight size={16} />
-      </Link>
-      <Link
-        href="/?modal=login"
-        className="rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:border-[#0A2C57]/15 hover:text-[#0A2C57]"
-      >
-        Imam račun
-      </Link>
-    </div>
-  );
-}
 
 export default async function HomePage({
   searchParams,
@@ -42,402 +22,415 @@ export default async function HomePage({
   }>;
 }) {
   const user = await getCurrentUser();
-  if (user) {
-    redirect("/dashboard");
-  }
+  if (user) redirect("/dashboard");
 
   const params = await searchParams;
-  const data = await getTournamentList({
-    q: params.q,
-    sport: params.sport,
-    status: params.status,
-  });
+  const data = await getTournamentList({ q: params.q, sport: params.sport, status: params.status });
   const activeModal =
     params.modal === "register" ? "register" : params.modal === "login" ? "login" : null;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(43,175,58,0.18),transparent_18%),radial-gradient(circle_at_right,_rgba(10,44,87,0.10),transparent_22%),linear-gradient(180deg,#f8fbff_0%,#eaf1f8_100%)] px-4 py-6 md:px-6">
-      <div className="mx-auto max-w-7xl">
-        <header className="rounded-[34px] border border-white/10 bg-[linear-gradient(135deg,#0A2C57_0%,#143d74_58%,#0b2344_100%)] px-6 py-6 text-white shadow-2xl shadow-[#0A2C57]/15 md:px-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <Logo />
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/?modal=login"
-                className="rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white backdrop-blur hover:bg-white/10"
-              >
-                Prijava
-              </Link>
-              <Link
-                href="/?modal=register"
-                className="rounded-2xl bg-[#2BAF3A] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2BAF3A]/25 hover:bg-[#249933]"
-              >
-                Registracija
-              </Link>
-            </div>
+    <div className="min-h-screen bg-[#f0f4f8]">
+      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
+
+        {/* ── Header ── */}
+        <header className="flex items-center justify-between rounded-[24px] bg-[#0A2C57] px-6 py-4 shadow-2xl shadow-[#0A2C57]/20">
+          <Logo />
+          <div className="flex items-center gap-2">
+            <Link
+              href="/?modal=login"
+              className="rounded-[14px] border border-white/20 px-4 py-2.5 text-sm font-bold text-white/80 transition hover:bg-white/10 hover:text-white"
+            >
+              Prijava
+            </Link>
+            <Link
+              href="/?modal=register"
+              className="rounded-[14px] bg-[#2BAF3A] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#2BAF3A]/30 transition hover:bg-[#249933]"
+            >
+              Registracija
+            </Link>
           </div>
         </header>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="relative overflow-hidden rounded-[34px] border border-white/60 bg-[linear-gradient(180deg,#ffffff_0%,#f9fcff_100%)] px-8 py-10 shadow-2xl shadow-slate-200/60">
-            <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-[#2BAF3A]/10 blur-3xl" />
-            <div className="absolute bottom-0 right-0 h-56 w-56 bg-[radial-gradient(circle,_rgba(10,44,87,0.08),_transparent_58%)]" />
+        {/* ── Hero ── */}
+        <section className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+
+          {/* Main hero card */}
+          <div className="relative overflow-hidden rounded-[24px] bg-white p-8 shadow-sm ring-1 ring-slate-200 md:p-10">
+            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#2BAF3A]/6 blur-3xl" />
             <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[#2BAF3A]">
+              <span className="inline-flex items-center rounded-full bg-[#2BAF3A]/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
                 Športna zveza srednjih šol
-              </p>
-              <h1 className="mt-5 max-w-4xl text-5xl leading-[0.96] tracking-tight text-[#0A2C57] md:text-7xl">
-                Turnirji, ekipe in šole v eni športni platformi.
+              </span>
+              <h1 className="mt-5 max-w-xl text-5xl font-black leading-[1] tracking-tight text-[#0A2C57] md:text-6xl">
+                Turnirji, ekipe in šole na enem mestu.
               </h1>
-              <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600">
+              <p className="mt-5 max-w-lg text-base leading-7 text-slate-500">
                 Javni pregled turnirjev, hitra registracija šolskih ekip in enoten sistem za
-                dijake, mentorje ter organizatorje. Brez razpršenih prijav, brez zmede, brez
-                ročnega usklajevanja.
+                dijake, mentorje ter organizatorje. Brez zmede, brez ročnega usklajevanja.
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600">
-                <div className="rounded-full border border-[#2BAF3A]/20 bg-[#2BAF3A]/8 px-4 py-2">
+              <div className="mt-6 flex flex-wrap gap-2">
+                <span className="rounded-full border border-[#2BAF3A]/25 bg-[#2BAF3A]/8 px-3.5 py-1.5 text-xs font-semibold text-[#2BAF3A]">
                   Registracija po dejanski srednji šoli
-                </div>
-                <div className="rounded-full border border-[#0A2C57]/10 bg-[#0A2C57]/5 px-4 py-2">
+                </span>
+                <span className="rounded-full border border-[#0A2C57]/15 bg-[#0A2C57]/6 px-3.5 py-1.5 text-xs font-semibold text-[#0A2C57]">
                   Admin odobritev novih računov
-                </div>
+                </span>
               </div>
 
-              <MainCta />
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/?modal=register"
+                  className="inline-flex items-center gap-2 rounded-[14px] bg-[#2BAF3A] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#2BAF3A]/25 transition hover:bg-[#249933]"
+                >
+                  Ustvari račun <ArrowRight size={15} />
+                </Link>
+                <Link
+                  href="/?modal=login"
+                  className="inline-flex items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:shadow-sm"
+                >
+                  Imam račun
+                </Link>
+              </div>
 
-              <div className="mt-10 grid gap-4 md:grid-cols-3">
+              {/* Stats */}
+              <div className="mt-8 grid grid-cols-3 gap-3 border-t border-slate-100 pt-6">
                 {[
-                  ["Odprti turnirji", `${data.tournaments.length}`, "Aktualni in prihajajoči dogodki"],
-                  ["Športne kategorije", `${SPORTS.length}`, "Od futsala do atletike"],
-                  ["Šole v sistemu", `${SCHOOL_OPTIONS.length}`, "Registracija po dejanski srednji šoli"],
-                ].map(([label, value, text]) => (
-                  <div
-                    key={label}
-                    className="rounded-[26px] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(244,248,252,0.96))] p-5"
-                  >
-                    <p className="text-sm text-slate-500">{label}</p>
-                    <p className="mt-2 text-3xl font-black text-[#0A2C57]">{value}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+                  { label: "Odprti turnirji", value: data.tournaments.length, sub: "Aktualni dogodki" },
+                  { label: "Športne kategorije", value: SPORTS.length, sub: "Od futsala do atletike" },
+                  { label: "Šole v sistemu", value: SCHOOL_OPTIONS.length, sub: "Po celotni Sloveniji" },
+                ].map(({ label, value, sub }) => (
+                  <div key={label} className="rounded-[16px] bg-slate-50 p-4 text-center">
+                    <p className="text-3xl font-black text-[#0A2C57]">{value}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-500">{label}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          {/* Feature cards */}
+          <div className="flex flex-col gap-4">
             {[
               {
-                title: "Pametna prijava",
-                text: "Prijava in registracija se odpirata v pojavnem oknu brez zapuščanja začetne strani.",
                 icon: ShieldCheck,
+                title: "Pametna prijava",
+                text: "Prijava in registracija se odpreta v pojavnem oknu — brez zapuščanja strani.",
+                color: "bg-[#0A2C57]",
               },
               {
-                title: "Šolske ekipe",
-                text: "Vsaka ekipa pripada svoji šoli, člane pa dodajaš iz potrjenih uporabnikov iste šole.",
                 icon: Users2,
+                title: "Šolske ekipe",
+                text: "Vsaka ekipa pripada svoji šoli. Člane dodajaš iz potrjenih sošolcev.",
+                color: "bg-amber-500",
               },
               {
+                icon: Trophy,
                 title: "Pregled turnirjev",
                 text: "Na prvi strani vidiš šport, lokacijo, zasedenost in datum vsakega turnirja.",
-                icon: Trophy,
+                color: "bg-[#2BAF3A]",
               },
             ].map((item) => {
               const Icon = item.icon;
               return (
                 <div
                   key={item.title}
-                  className="rounded-[30px] border border-white/50 bg-white/85 p-6 shadow-xl shadow-slate-200/40 backdrop-blur transition hover:-translate-y-1"
+                  className="flex items-start gap-4 rounded-[20px] bg-white p-5 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A2C57] text-white">
-                    <Icon size={20} />
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${item.color} text-white`}>
+                    <Icon size={18} />
                   </div>
-                  <h2 className="mt-5 text-2xl tracking-tight text-[#0A2C57]">{item.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{item.text}</p>
+                  <div>
+                    <h2 className="text-base font-black text-[#0A2C57]">{item.title}</h2>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">{item.text}</p>
+                  </div>
                 </div>
               );
             })}
           </div>
         </section>
 
-        <section className="mt-6 rounded-[34px] border border-white/60 bg-white px-6 py-6 shadow-2xl shadow-slate-200/60 md:px-8 md:py-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        {/* ── Tournament list ── */}
+        <section className="mt-4 rounded-[24px] bg-white p-6 shadow-sm ring-1 ring-slate-200 md:p-8">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[#2BAF3A]">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">
                 Javni pregled
-              </p>
-              <h2 className="mt-3 text-4xl tracking-tight text-[#0A2C57]">Aktualni turnirji</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Filtriraj po športu, statusu ali lokaciji in nato odpri račun za prijavo ekip.
+              </span>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0A2C57]">
+                Aktualni turnirji
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Filtriraj in odpri račun za prijavo ekip.
               </p>
             </div>
           </div>
 
-          <form className="mt-6 grid gap-4 rounded-[30px] border border-slate-200 bg-[linear-gradient(180deg,#f8fbfd_0%,#eff5fa_100%)] p-5 md:grid-cols-4">
+          {/* Filters */}
+          <form className="mb-6 grid gap-3 rounded-[18px] bg-slate-50 p-4 md:grid-cols-4">
             <input
               name="q"
               defaultValue={params.q}
-              placeholder="Išči po nazivu ali lokaciji"
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              placeholder="Naziv ali lokacija…"
+              className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm"
             />
             <select
               name="sport"
               defaultValue={params.sport ?? ""}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700"
             >
               <option value="">Vsi športi</option>
               {data.sports.map((sport) => (
-                <option key={sport} value={sport}>
-                  {sport}
-                </option>
+                <option key={sport} value={sport}>{sport}</option>
               ))}
             </select>
             <select
               name="status"
               defaultValue={params.status ?? ""}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700"
             >
               <option value="">Vsi statusi</option>
               <option value="odprt">Odprt</option>
               <option value="poln">Poln</option>
               <option value="zaključen">Zaključen</option>
             </select>
-            <button className="rounded-2xl bg-[#0A2C57] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#0A2C57]/20">
-              Uporabi filtre
+            <button className="rounded-[12px] bg-[#0A2C57] py-2.5 text-sm font-black text-white transition hover:bg-[#0d3570]">
+              Išči
             </button>
           </form>
 
-          <div className="mt-8 grid gap-5 xl:grid-cols-2">
+          {/* Cards */}
+          <div className="grid gap-4 xl:grid-cols-2">
             {data.tournaments.map((tournament) => (
               <article
                 key={tournament.id}
-                className="group overflow-hidden rounded-[30px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbfd_100%)] p-6 shadow-lg shadow-slate-100/80 transition hover:-translate-y-1 hover:border-[#2BAF3A]/40"
+                className="group rounded-[20px] border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#2BAF3A]/40 hover:shadow-md"
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#2BAF3A]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
                       {tournament.sport}
                     </p>
-                    <h3 className="mt-3 text-3xl tracking-tight text-[#0A2C57]">
+                    <h3 className="mt-1.5 text-xl font-black leading-tight text-[#0A2C57]">
                       {tournament.title}
                     </h3>
                   </div>
-                  <span className="rounded-full bg-[#e8f8ea] px-3 py-1 text-xs font-semibold text-[#228f2f]">
+                  <span className="shrink-0 rounded-full bg-[#e8f8ea] px-2.5 py-1 text-[11px] font-bold text-[#228f2f]">
                     {tournament.status}
                   </span>
                 </div>
 
-                <p className="mt-4 text-sm leading-7 text-slate-600">{tournament.description}</p>
+                {tournament.description && (
+                  <p className="mt-2 text-sm leading-6 text-slate-500 line-clamp-2">
+                    {tournament.description}
+                  </p>
+                )}
 
-                <div className="mt-6 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-                  <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-3">
-                    <CalendarDays size={16} className="text-[#0A2C57]" />
-                    <span>{formatDate(tournament.date)}</span>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2 rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <CalendarDays size={12} className="text-slate-400" />
+                    {formatDate(tournament.date)}
                   </div>
-                  <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-3">
-                    <MapPin size={16} className="text-[#0A2C57]" />
-                    <span>{tournament.location}</span>
+                  <div className="flex items-center gap-2 rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <MapPin size={12} className="text-slate-400" />
+                    <span className="truncate">{tournament.location}</span>
                   </div>
                 </div>
 
-                <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-5 text-sm text-slate-500">
-                  <span>Organizator: {tournament.organizer.fullName}</span>
-                  <span>
-                    {tournament.registrations.length}/{tournament.maxTeams} ekip
-                  </span>
+                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <span className="text-xs text-slate-400">Org: {tournament.organizer.fullName}</span>
+                  <div className="flex items-center gap-1 text-xs font-semibold text-slate-600">
+                    <Users size={12} />
+                    {tournament.registrations.length}/{tournament.maxTeams}
+                  </div>
                 </div>
 
-                <div className="mt-6">
+                <div className="mt-4">
                   <Link
                     href="/?modal=login"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-[#0A2C57] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#0A2C57]/20"
+                    className="inline-flex items-center gap-1.5 rounded-[12px] bg-[#0A2C57] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0d3570]"
                   >
-                    Prijava za podrobnosti
-                    <ArrowRight size={16} />
+                    Prijava za podrobnosti <ArrowRight size={12} />
                   </Link>
                 </div>
               </article>
             ))}
           </div>
         </section>
+      </div>
 
-        {activeModal ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(43,175,58,0.15),transparent_20%),rgba(2,12,27,0.72)] px-4 py-8 backdrop-blur-md">
-            <div className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[34px] border border-white/20 bg-[linear-gradient(180deg,#ffffff_0%,#f6f9fc_100%)] p-8 shadow-2xl shadow-black/30 md:p-10">
-              <Link
-                href="/"
-                className="absolute right-5 top-5 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 hover:text-[#0A2C57]"
-              >
-                Zapri
-              </Link>
+      {/* ── Modal ── */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-sm">
+          <div className="relative w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white shadow-2xl">
+            <Link
+              href="/"
+              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+            >
+              ✕
+            </Link>
 
-              <div className="grid gap-8 md:grid-cols-[0.95fr_1.05fr]">
-                <div className="rounded-[28px] bg-[#0A2C57] p-6 text-white">
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#8EF29A]">
-                    ŠZSŠ portal
-                  </p>
-                  <h2 className="mt-4 text-4xl leading-tight tracking-tight">
-                    {activeModal === "login" ? "Prijava v sistem" : "Registracija novega računa"}
-                  </h2>
-                  <p className="mt-4 text-sm leading-7 text-white/75">
-                    {activeModal === "login"
-                      ? "Vstopi v sistem za upravljanje ekip, prijave na turnirje in pregled dogajanja tvoje šole."
-                      : "Izberi svojo srednjo šolo, naloži kartico in po admin odobritvi dostopaj do ekip in turnirjev."}
-                  </p>
-                  <div className="mt-8 space-y-3">
-                    {[
-                      "Javni pregled turnirjev",
-                      "Registracija po dejanski srednji šoli",
-                      "Ekipe in člani na enem mestu",
-                    ].map((item) => (
-                      <div key={item} className="rounded-2xl bg-white/8 px-4 py-3 text-sm text-white/80">
-                        {item}
-                      </div>
-                    ))}
-                  </div>
+            <div className="grid md:grid-cols-[0.9fr_1.1fr]">
+              {/* Left info panel */}
+              <div className="rounded-[28px] bg-[#0A2C57] p-7 text-white md:rounded-r-none">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8EF29A]">
+                  ŠZSŠ portal
+                </span>
+                <h2 className="mt-3 text-2xl font-black leading-tight">
+                  {activeModal === "login" ? "Prijava v sistem" : "Registracija novega računa"}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-white/60">
+                  {activeModal === "login"
+                    ? "Vstopi za upravljanje ekip, prijave na turnirje in pregled dogajanja tvoje šole."
+                    : "Izberi svojo šolo, naloži kartico in po admin odobritvi dostopaj do ekip in turnirjev."}
+                </p>
+                <div className="mt-6 space-y-2">
+                  {[
+                    "Javni pregled turnirjev",
+                    "Registracija po dejanski srednji šoli",
+                    "Ekipe in člani na enem mestu",
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-2.5 rounded-[12px] bg-white/8 px-3.5 py-2.5 text-sm text-white/70">
+                      <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8EF29A]" />
+                      {item}
+                    </div>
+                  ))}
                 </div>
+              </div>
 
-                <div>
-                  {activeModal === "login" ? (
-                    <>
-                      <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#2BAF3A]">
-                        Prijava
-                      </p>
-                      <h3 className="mt-3 text-3xl tracking-tight text-[#0A2C57]">Vstop v sistem</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-600">
-                        Prijavi se s svojim računom. Če je registracija še v čakanju, te admin
-                        najprej odobri.
-                      </p>
+              {/* Right form */}
+              <div className="p-7">
+                {activeModal === "login" ? (
+                  <>
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">Prijava</span>
+                    <h3 className="mt-2 text-2xl font-black text-[#0A2C57]">Vstop v sistem</h3>
+                    <p className="mt-1.5 text-sm text-slate-500">
+                      Prijavi se. Registracija se najprej pregleda.
+                    </p>
 
-                      {params.registered ? (
-                        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                          Registracija je oddana. Po admin odobritvi se lahko prijaviš.
-                        </div>
-                      ) : null}
+                    {params.registered && (
+                      <div className="mt-4 rounded-[12px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                        Registracija je oddana. Po admin odobritvi se lahko prijaviš.
+                      </div>
+                    )}
+                    {params.loginError && (
+                      <div className="mt-4 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                        {params.loginError}
+                      </div>
+                    )}
 
-                      {params.loginError ? (
-                        <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                          {params.loginError}
-                        </div>
-                      ) : null}
-
-                      <form action={loginAction} className="mt-8 space-y-4">
-                        <input type="hidden" name="redirectTo" value="/" />
-                        <label className="block">
-                          <span className="mb-2 block text-sm font-medium text-slate-700">E-pošta</span>
-                          <input
-                            name="email"
-                            type="email"
-                            required
-                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                            placeholder="ime@sola.si"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="mb-2 block text-sm font-medium text-slate-700">Geslo</span>
-                          <input
-                            name="password"
-                            type="password"
-                            required
-                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                            placeholder="Vnesi geslo"
-                          />
-                        </label>
-                        <button className="w-full rounded-2xl bg-[#0A2C57] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#0A2C57]/20">
-                          Prijava
-                        </button>
-                      </form>
-
-                      <p className="mt-6 text-sm text-slate-600">
-                        Nimaš računa?{" "}
-                        <Link href="/?modal=register" className="font-semibold text-[#2BAF3A]">
-                          Registriraj se tukaj
-                        </Link>
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#2BAF3A]">
-                        Registracija
-                      </p>
-                      <h3 className="mt-3 text-3xl tracking-tight text-[#0A2C57]">Ustvari račun</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-600">
-                        Izberi svojo srednjo šolo, naloži šolsko kartico in počakaj na admin
-                        odobritev.
-                      </p>
-
-                      {params.registerError ? (
-                        <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                          {params.registerError}
-                        </div>
-                      ) : null}
-
-                      <form action={registerAction} className="mt-8 grid gap-4">
-                        <input type="hidden" name="redirectTo" value="/" />
-                        <input
-                          name="fullName"
-                          required
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                          placeholder="Ime in priimek"
-                        />
+                    <form action={loginAction} className="mt-5 space-y-3.5">
+                      <input type="hidden" name="redirectTo" value="/" />
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-400">E-pošta</span>
                         <input
                           name="email"
                           type="email"
                           required
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                          placeholder="E-pošta"
+                          className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
+                          placeholder="ime@sola.si"
                         />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-400">Geslo</span>
                         <input
                           name="password"
                           type="password"
                           required
-                          minLength={6}
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                          placeholder="Geslo"
+                          className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
+                          placeholder="••••••••"
                         />
-                        <select
-                          name="schoolName"
-                          required
-                          defaultValue=""
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
-                        >
-                          <option value="" disabled>
-                            Izberi svojo šolo
-                          </option>
-                          {SCHOOL_OPTIONS.map((school) => (
-                            <option key={school} value={school}>
-                              {school}
-                            </option>
-                          ))}
-                        </select>
+                      </label>
+                      <button className="w-full rounded-[12px] bg-[#0A2C57] py-3 text-sm font-black text-white shadow-lg shadow-[#0A2C57]/20 transition hover:bg-[#0d3570]">
+                        Prijava
+                      </button>
+                    </form>
 
+                    <p className="mt-5 text-sm text-slate-500">
+                      Nimaš računa?{" "}
+                      <Link href="/?modal=register" className="font-black text-[#2BAF3A]">
+                        Registriraj se
+                      </Link>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">Registracija</span>
+                    <h3 className="mt-2 text-2xl font-black text-[#0A2C57]">Ustvari račun</h3>
+                    <p className="mt-1.5 text-sm text-slate-500">
+                      Izberi šolo, naloži kartico in počakaj na admin odobritev.
+                    </p>
 
+                    {params.registerError && (
+                      <div className="mt-4 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                        {params.registerError}
+                      </div>
+                    )}
+
+                    <form action={registerAction} className="mt-5 space-y-3">
+                      <input type="hidden" name="redirectTo" value="/" />
+                      <input
+                        name="fullName"
+                        required
+                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
+                        placeholder="Ime in priimek"
+                      />
+                      <input
+                        name="email"
+                        type="email"
+                        required
+                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
+                        placeholder="E-pošta"
+                      />
+                      <input
+                        name="password"
+                        type="password"
+                        required
+                        minLength={6}
+                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
+                        placeholder="Geslo (min. 6 znakov)"
+                      />
+                      <select
+                        name="schoolName"
+                        required
+                        defaultValue=""
+                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
+                      >
+                        <option value="" disabled>Izberi svojo šolo</option>
+                        {SCHOOL_OPTIONS.map((school) => (
+                          <option key={school} value={school}>{school}</option>
+                        ))}
+                      </select>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-bold text-slate-500">Šolska kartica (slika)</span>
                         <input
                           name="schoolCard"
                           type="file"
                           accept="image/*"
                           required
-                          className="w-full rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm"
+                          className="w-full rounded-[12px] border border-dashed border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#0A2C57] file:px-3 file:py-1 file:text-xs file:font-bold file:text-white"
                         />
-                        <button className="mt-2 rounded-2xl bg-[#2BAF3A] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#2BAF3A]/25">
-                          Oddaj registracijo
-                        </button>
-                      </form>
+                      </label>
+                      <button className="w-full rounded-[12px] bg-[#2BAF3A] py-3 text-sm font-black text-white shadow-lg shadow-[#2BAF3A]/25 transition hover:bg-[#249933]">
+                        Oddaj registracijo
+                      </button>
+                    </form>
 
-                      <p className="mt-6 text-sm text-slate-600">
-                        Že imaš račun?{" "}
-                        <Link href="/?modal=login" className="font-semibold text-[#0A2C57]">
-                          Nazaj na prijavo
-                        </Link>
-                      </p>
-                    </>
-                  )}
-                </div>
+                    <p className="mt-4 text-sm text-slate-500">
+                      Že imaš račun?{" "}
+                      <Link href="/?modal=login" className="font-black text-[#0A2C57]">
+                        Prijavi se
+                      </Link>
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

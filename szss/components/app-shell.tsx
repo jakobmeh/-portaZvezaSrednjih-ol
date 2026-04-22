@@ -25,6 +25,14 @@ const navItems = [
   { href: "/teams", label: "Ekipe", icon: Users },
 ];
 
+function Initials({ name }: { name: string }) {
+  const parts = name.trim().split(" ");
+  const init = parts.length >= 2
+    ? parts[0][0] + parts[parts.length - 1][0]
+    : parts[0].slice(0, 2);
+  return <>{init.toUpperCase()}</>;
+}
+
 export function AppShell({
   user,
   activePath,
@@ -41,11 +49,22 @@ export function AppShell({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(43,175,58,0.14),_transparent_32%),linear-gradient(180deg,#f7fbff_0%,#eef3f9_100%)]">
-      <div className="mx-auto grid min-h-screen max-w-[1500px] gap-6 px-4 py-4 lg:grid-cols-[280px_1fr]">
-        <aside className="rounded-[28px] bg-[#0A2C57] p-6 text-white shadow-2xl shadow-[#0A2C57]/20">
-          <Logo />
-          <div className="mt-10 space-y-2">
+    <div className="min-h-screen bg-[#f0f4f8]">
+      <div className="mx-auto grid min-h-screen max-w-[1600px] gap-4 p-4 lg:grid-cols-[260px_1fr]">
+
+        {/* ── Sidebar ── */}
+        <aside className="flex flex-col gap-3 rounded-[28px] bg-[#0A2C57] p-4 text-white shadow-2xl shadow-[#0A2C57]/20 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:self-start">
+
+          {/* Logo */}
+          <div className="rounded-[20px] bg-white/[0.07] p-3.5">
+            <Logo />
+          </div>
+
+          {/* Nav */}
+          <nav className="flex flex-col gap-0.5 pt-1">
+            <p className="mb-1.5 px-3 text-[10px] font-black uppercase tracking-[0.35em] text-white/25">
+              Menu
+            </p>
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = activePath === item.href || activePath.startsWith(`${item.href}/`);
@@ -53,74 +72,99 @@ export function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition ${
+                  className={`flex items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-sm font-semibold transition-all ${
                     active
-                      ? "bg-white text-[#0A2C57]"
-                      : "text-white/80 hover:bg-white/10 hover:text-white"
+                      ? "bg-white text-[#0A2C57] shadow-md"
+                      : "text-white/60 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <Icon size={18} />
+                  <Icon size={16} className={active ? "text-[#2BAF3A]" : "opacity-70"} />
                   {item.label}
                 </Link>
               );
             })}
-            {user.role === "ADMIN" ? (
+            {user.role === "ADMIN" && (
               <Link
                 href="/admin"
-                className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition ${
+                className={`flex items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-sm font-semibold transition-all ${
                   activePath.startsWith("/admin")
-                    ? "bg-white text-[#0A2C57]"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                    ? "bg-white text-[#0A2C57] shadow-md"
+                    : "text-white/60 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <ShieldCheck size={18} />
+                <ShieldCheck size={16} className={activePath.startsWith("/admin") ? "text-[#2BAF3A]" : "opacity-70"} />
                 Admin panel
               </Link>
-            ) : null}
-          </div>
+            )}
+          </nav>
 
-          <div className="mt-10 rounded-[24px] border border-white/10 bg-white/8 p-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-white/50">Profil</p>
-            <p className="mt-3 text-lg font-semibold">{user.fullName}</p>
-            <p className="text-sm text-white/70">{getRoleLabel(user.role)}</p>
-            <p className="mt-1 text-sm text-white/70">{user.schoolName}</p>
-            <form action={logoutAction} className="mt-5">
-              <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2BAF3A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#249933]">
-                <LogOut size={16} />
-                Odjava
-              </button>
-            </form>
-          </div>
+          {/* Spacer */}
+          <div className="flex-1" />
 
-          <div className="mt-6 rounded-[24px] bg-[linear-gradient(135deg,rgba(43,175,58,0.22),rgba(255,255,255,0.04))] p-4">
-            <div className="flex items-start gap-3">
-              <Bell size={18} className="mt-1 text-[#8EF29A]" />
+          {/* Notifications hint */}
+          <div className="rounded-[18px] bg-[linear-gradient(135deg,rgba(43,175,58,0.28),rgba(43,175,58,0.06))] p-3.5 ring-1 ring-[#2BAF3A]/20">
+            <div className="flex items-start gap-2.5">
+              <div className="mt-0.5 rounded-lg bg-[#2BAF3A]/25 p-1.5">
+                <Bell size={13} className="text-[#8EF29A]" />
+              </div>
               <div>
-                <p className="text-sm font-semibold">Obvestila in statusi</p>
-                <p className="mt-1 text-sm text-white/70">
-                  Spremljaj prijave ekip, sošolce iz svoje šole in admin odobritve brez
-                  razpršenih sporočil.
+                <p className="text-xs font-bold text-white">Obvestila</p>
+                <p className="mt-0.5 text-[11px] leading-4 text-white/50">
+                  Prijave, odobritve in novosti iz tvoje šole.
                 </p>
               </div>
             </div>
           </div>
+
+          {/* Profile */}
+          <div className="rounded-[18px] bg-white/[0.07] p-3.5 ring-1 ring-white/[0.07]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2BAF3A] text-xs font-black text-white">
+                <Initials name={user.fullName} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold leading-tight">{user.fullName}</p>
+                <p className="mt-0.5 truncate text-[11px] text-white/45">{user.schoolName}</p>
+              </div>
+            </div>
+            <div className="mt-2.5 flex items-center gap-2">
+              <span className="rounded-full bg-[#2BAF3A]/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#8EF29A]">
+                {getRoleLabel(user.role)}
+              </span>
+            </div>
+            <form action={logoutAction} className="mt-3">
+              <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/8 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-rose-500/20 hover:text-rose-300">
+                <LogOut size={13} />
+                Odjava
+              </button>
+            </form>
+          </div>
         </aside>
 
-        <main className="rounded-[30px] bg-white/80 p-4 shadow-xl shadow-slate-200/60 backdrop-blur md:p-8">
-          <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-end md:justify-between">
+        {/* ── Main ── */}
+        <main className="flex min-h-[calc(100vh-2rem)] flex-col rounded-[28px] bg-white shadow-lg shadow-slate-200/60">
+          {/* Page header */}
+          <div className="flex flex-col gap-4 border-b border-slate-100 px-7 py-6 md:flex-row md:items-center md:justify-between md:px-10">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#2BAF3A]">
+              <span className="inline-flex items-center rounded-full bg-[#2BAF3A]/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">
                 ŠZSŠ portal
-              </p>
-              <h1 className="mt-3 text-3xl font-black tracking-tight text-[#0A2C57] md:text-4xl">
+              </span>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-[#0A2C57] md:text-4xl">
                 {title}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
+              <p className="mt-1 max-w-2xl text-sm text-slate-500">{description}</p>
             </div>
-            {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
+            {actions && (
+              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+                {actions}
+              </div>
+            )}
           </div>
 
-          <div className="py-6">{children}</div>
+          {/* Content */}
+          <div className="flex-1 px-7 py-7 md:px-10">
+            {children}
+          </div>
         </main>
       </div>
     </div>

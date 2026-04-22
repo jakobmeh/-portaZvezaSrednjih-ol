@@ -19,10 +19,10 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       </div>
       {!compact ? (
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#2BAF3A]">
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#8EF29A]">
             Športna zveza srednjih šol
           </p>
-          <p className="text-xs text-slate-500">Šolski športni turnirji na enem mestu</p>
+          <p className="text-xs text-white/45">Šolski športni turnirji na enem mestu</p>
         </div>
       ) : null}
     </Link>

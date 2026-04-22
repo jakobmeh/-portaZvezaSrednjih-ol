@@ -9,7 +9,7 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient({ adapter });
 
-const DEMO_SCHOOL = "Šolski center Kranj, Srednja tehniška šola";
+const DEMO_SCHOOL = "Šolski center Velenje";
 
 async function upsertUser({ email, fullName, role, passwordHash, schoolName }) {
   return prisma.user.upsert({
