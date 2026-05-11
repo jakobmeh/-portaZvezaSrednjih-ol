@@ -1,454 +1,287 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  CalendarDays,
-  ExternalLink,
-  MapPin,
-  MessageSquare,
-  Send,
-  Trophy,
-  Users,
-  Zap,
-} from "lucide-react";
+import { CalendarDays, MapPin, MessageSquare, Send, Trophy, Users, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { StatusBadge } from "@/components/status-badge";
-import {
-  createMessageAction,
-  followTournamentAction,
-  joinTournamentAction,
-  unfollowTournamentAction,
-} from "@/lib/actions";
+import { BracketView } from "@/components/bracket-view";
+import { FormSelect } from "@/components/form-select";
+import { createMessageAction, followTournamentAction, joinTournamentAction, unfollowTournamentAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { getTeamsForUser, getTournamentDetails } from "@/lib/data";
-import {
-  calculateStandings,
-  formatDate,
-  getMatchStatusLabel,
-  getMatchStatusTone,
-  getRegistrationLabel,
-  getTournamentFormatLabel,
-  getTournamentStatus,
-  isProUser,
-  normalizeLabel,
-} from "@/lib/utils";
+import { calculateKnockoutStandings, calculateStandings, formatDate, getMatchStatusLabel, getRegistrationLabel, getTournamentFormatLabel, getTournamentStatus, normalizeLabel } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 
-export default async function TournamentDetailsPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function TournamentDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
   const user = await requireUser();
   const { slug } = await params;
-  const [tournament, teams] = await Promise.all([
-    getTournamentDetails(slug),
-    getTeamsForUser(user.id),
-  ]);
-
+  const [tournament, teams] = await Promise.all([getTournamentDetails(slug), getTeamsForUser(user.id)]);
   if (!tournament) notFound();
 
   const isOrganizer = tournament.organizerId === user.id;
-
   const following = await prisma.tournamentFollower.findUnique({
     where: { userId_tournamentId: { userId: user.id, tournamentId: tournament.id } },
   });
 
-  const status = getTournamentStatus({
-    date: tournament.date,
-    maxTeams: tournament.maxTeams,
-    registeredTeams: tournament.registrations.length,
-  });
-
+  const status = getTournamentStatus({ date: tournament.date, maxTeams: tournament.maxTeams, registeredTeams: tournament.registrations.length });
   const progress = Math.min((tournament.registrations.length / tournament.maxTeams) * 100, 100);
-  const normalizedTournamentSport = normalizeLabel(tournament.sport);
   const alreadyRegisteredTeamIds = new Set(tournament.registrations.map((r) => r.teamId));
-  const eligibleTeams = teams.filter(
-    (team) =>
-      normalizeLabel(team.sport) === normalizedTournamentSport &&
-      !alreadyRegisteredTeamIds.has(team.id),
-  );
+  const eligibleTeams = teams.filter((t) => normalizeLabel(t.sport) === normalizeLabel(tournament.sport) && !alreadyRegisteredTeamIds.has(t.id));
+  const standingsInput = tournament.matches.map((m) => ({
+    homeTeamId: m.homeTeamId, homeTeam: m.homeTeam, awayTeamId: m.awayTeamId, awayTeam: m.awayTeam,
+    scoreHome: m.scoreHome, scoreAway: m.scoreAway, status: m.status, round: m.round, group: m.group,
+  }));
+  const standings = tournament.format === "KNOCKOUT"
+    ? calculateKnockoutStandings(standingsInput)
+    : calculateStandings(standingsInput);
+  const liveOrUpcoming = tournament.matches.filter((m) => m.status === "UPCOMING" || m.status === "LIVE").slice(0, 3);
 
-  const standings = calculateStandings(
-    tournament.matches.map((m) => ({
-      homeTeamId: m.homeTeamId,
-      homeTeam: m.homeTeam,
-      awayTeamId: m.awayTeamId,
-      awayTeam: m.awayTeam,
-      scoreHome: m.scoreHome,
-      scoreAway: m.scoreAway,
-      status: m.status,
-      group: m.group,
-    })),
-  );
-
-  const liveOrUpcoming = tournament.matches.filter(
-    (m) => m.status === "UPCOMING" || m.status === "LIVE",
-  ).slice(0, 3);
-
-  const publicUrl = `/t/${tournament.slug}`;
+  const statusColor = status === "Odprt" ? "badge-green" : status === "Poln" ? "badge-red" : "badge-gray";
 
   return (
     <AppShell
       user={user}
       activePath="/tournaments"
       title={tournament.title}
-      description="Podrobnosti turnirja, lestvica, tekme in komunikacija z organizatorjem."
+      description={`${tournament.sport} · ${getTournamentFormatLabel(tournament.format)}`}
       actions={
         <div className="flex items-center gap-2">
-          <StatusBadge label={status} />
+          <span className={`badge ${statusColor}`}>{status}</span>
           {isOrganizer && (
-            <Link
-              href={`/tournaments/${slug}/matches`}
-              className="rounded-2xl bg-[#2BAF3A] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#2BAF3A]/30 transition hover:bg-[#249933]"
-            >
+            <Link href={`/tournaments/${slug}/matches`} className="btn-primary py-2 px-4 text-sm">
               Upravljaj tekme
             </Link>
           )}
         </div>
       }
     >
-      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
+      <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
 
-        {/* Left column */}
-        <div className="space-y-5">
+        {/* Left */}
+        <div className="space-y-4">
 
           {/* Info */}
-          <section className="rounded-[22px] border border-slate-200 bg-white p-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
-              {tournament.sport} · {getTournamentFormatLabel(tournament.format)}
-            </p>
+          <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             {tournament.description && (
-              <p className="mt-3 text-sm leading-7 text-slate-600">{tournament.description}</p>
+              <p className="text-sm leading-6 mb-4" style={{ color: "var(--text-secondary)" }}>{tournament.description}</p>
             )}
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               {[
                 { icon: CalendarDays, label: "Datum in ura", value: formatDate(tournament.date) },
                 { icon: MapPin, label: "Lokacija", value: tournament.location },
                 { icon: Users, label: "Organizator", value: tournament.organizer.fullName },
-                {
-                  icon: Trophy,
-                  label: "Kapaciteta ekip",
-                  value: `${tournament.registrations.length} / ${tournament.maxTeams}`,
-                },
+                { icon: Trophy, label: "Kapaciteta", value: `${tournament.registrations.length} / ${tournament.maxTeams} ekip` },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="rounded-[14px] bg-slate-50 p-4">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Icon size={13} className="text-slate-400" />
-                    <p className="text-xs font-bold text-slate-400">{label}</p>
+                <div key={label} className="rounded-xl p-3" style={{ background: "var(--bg-surface)" }}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Icon size={11} style={{ color: "var(--text-muted)" }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{label}</span>
                   </div>
-                  <p className="text-sm font-black text-[#0A2C57]">{value}</p>
+                  <p className="text-sm font-bold">{value}</p>
                 </div>
               ))}
             </div>
+          </div>
 
-            {/* Public leaderboard link */}
-            <div className="mt-4 flex items-center gap-3 rounded-[14px] bg-[#f0fdf4] px-4 py-3">
-              <ExternalLink size={14} className="shrink-0 text-[#2BAF3A]" />
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-[#2BAF3A]">Javna lestvica</p>
-                <p className="truncate text-xs text-slate-500">
-                  Deli to povezavo z gledalci in ekipami (brez prijave)
-                </p>
-              </div>
-              <a
-                href={publicUrl}
-                target="_blank"
-                className="ml-auto shrink-0 rounded-[10px] bg-[#2BAF3A] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#249933]"
-              >
-                Odpri
-              </a>
-            </div>
-          </section>
-
-          {/* Live matches */}
+          {/* Tekme */}
           {liveOrUpcoming.length > 0 && (
-            <section className="rounded-[22px] border border-slate-200 bg-white p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="rounded-xl bg-red-100 p-2">
-                    <Zap size={15} className="text-red-500" />
-                  </div>
-                  <h2 className="text-base font-black text-[#0A2C57]">Tekme</h2>
-                </div>
-                <Link
-                  href={`/tournaments/${slug}/matches`}
-                  className="text-xs font-bold text-[#2BAF3A] hover:underline"
-                >
-                  Vse tekme →
-                </Link>
+            <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-black text-sm uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  <Zap size={11} className="inline mr-1 text-red-400" />
+                  Tekme
+                </h2>
+                <Link href={`/tournaments/${slug}/matches`} className="text-xs font-semibold" style={{ color: "#6ee77a" }}>Vse →</Link>
               </div>
               <div className="space-y-2">
-                {liveOrUpcoming.map((match) => (
-                  <div key={match.id} className="flex items-center gap-3 rounded-[14px] bg-slate-50 px-4 py-3">
-                    <p className="flex-1 text-right text-sm font-bold text-[#0A2C57]">{match.homeTeam.name}</p>
+                {liveOrUpcoming.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: "var(--bg-surface)" }}>
+                    <p className="flex-1 text-right text-sm font-bold">{m.homeTeam.name}</p>
                     <div className="flex items-center gap-1">
-                      {match.status === "LIVE" ? (
+                      {m.status === "LIVE" ? (
                         <>
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0A2C57] text-sm font-black text-white">
-                            {match.scoreHome ?? "–"}
-                          </span>
-                          <span className="text-xs font-black text-slate-400">:</span>
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0A2C57] text-sm font-black text-white">
-                            {match.scoreAway ?? "–"}
-                          </span>
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg text-sm font-black" style={{ background: "#ef4444", color: "white" }}>{m.scoreHome ?? "–"}</span>
+                          <span className="text-xs font-black" style={{ color: "var(--text-muted)" }}>:</span>
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg text-sm font-black" style={{ background: "#ef4444", color: "white" }}>{m.scoreAway ?? "–"}</span>
                         </>
                       ) : (
-                        <span className="text-xs font-bold text-slate-400">vs</span>
+                        <span className="text-xs font-bold px-2" style={{ color: "var(--text-muted)" }}>vs</span>
                       )}
                     </div>
-                    <p className="flex-1 text-sm font-bold text-[#0A2C57]">{match.awayTeam.name}</p>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getMatchStatusTone(match.status)}`}>
-                      {getMatchStatusLabel(match.status)}
-                    </span>
+                    <p className="flex-1 text-sm font-bold">{m.awayTeam.name}</p>
+                    <span className={`badge ${m.status === "LIVE" ? "badge-live" : "badge-gray"}`}>{getMatchStatusLabel(m.status)}</span>
                   </div>
                 ))}
               </div>
-            </section>
+            </div>
           )}
 
-          {/* Standings */}
-          {standings.length > 0 && (
-            <section className="rounded-[22px] border border-slate-200 bg-white p-6">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="rounded-xl bg-[#2BAF3A]/10 p-2">
-                  <Trophy size={15} className="text-[#2BAF3A]" />
-                </div>
-                <h2 className="text-base font-black text-[#0A2C57]">Lestvica</h2>
+          {/* Bracket */}
+          {tournament.matches.some((m) => m.round !== null) && (
+            <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="font-black text-sm uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  <Trophy size={11} className="inline mr-1 text-amber-400" />
+                  Bracket
+                </h2>
+                <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                  {tournament.matches.filter((m) => m.round !== null && m.status !== "CANCELLED").length} tekem
+                </span>
               </div>
-              <div className="overflow-hidden rounded-[14px] border border-slate-100">
+              <BracketView matches={tournament.matches} />
+            </div>
+          )}
+
+          {/* Lestvica */}
+          {standings.length > 0 && (
+            <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <h2 className="font-black text-sm uppercase tracking-wider mb-4" style={{ color: "var(--text-muted)" }}>
+                <Trophy size={11} className="inline mr-1 text-amber-400" />
+                Lestvica
+              </h2>
+              <div className="overflow-hidden rounded-xl" style={{ border: "1px solid var(--border)" }}>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50">
-                      <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">#</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Ekipa</th>
-                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">T</th>
-                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">Z</th>
-                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">P</th>
-                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-[#2BAF3A]">Točke</th>
+                    <tr style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
+                      {["#", "Ekipa", "T", "Z", "P", "Točke"].map((h) => (
+                        <th key={h} className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-left" style={{ color: "var(--text-muted)" }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {standings.slice(0, 6).map((row, i) => (
-                      <tr key={row.teamId} className="border-b border-slate-50 last:border-0">
-                        <td className="px-3 py-2.5 text-xs font-black text-slate-400">{i + 1}</td>
-                        <td className="px-3 py-2.5 font-bold text-[#0A2C57]">{row.teamName}</td>
-                        <td className="px-3 py-2.5 text-center text-slate-500">{row.played}</td>
-                        <td className="px-3 py-2.5 text-center font-bold text-emerald-600">{row.wins}</td>
-                        <td className="px-3 py-2.5 text-center font-bold text-rose-500">{row.losses}</td>
-                        <td className="px-3 py-2.5 text-center font-black text-[#2BAF3A]">{row.points}</td>
+                    {standings.slice(0, 8).map((row, i) => (
+                      <tr key={row.teamId} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td className="px-3 py-2.5 text-xs font-black" style={{ color: "var(--text-muted)" }}>{i + 1}</td>
+                        <td className="px-3 py-2.5 font-bold">{row.teamName}</td>
+                        <td className="px-3 py-2.5 text-center text-xs" style={{ color: "var(--text-secondary)" }}>{row.played}</td>
+                        <td className="px-3 py-2.5 text-center text-xs font-bold" style={{ color: "#4ade80" }}>{row.wins}</td>
+                        <td className="px-3 py-2.5 text-center text-xs font-bold" style={{ color: "#f87171" }}>{row.losses}</td>
+                        <td className="px-3 py-2.5 text-center font-black" style={{ color: "#6ee77a" }}>{row.points}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <a
-                href={publicUrl}
-                target="_blank"
-                className="mt-3 inline-block text-xs font-bold text-[#2BAF3A] hover:underline"
-              >
-                Celotna lestvica →
-              </a>
-            </section>
+            </div>
           )}
 
-          {/* Registered teams */}
-          <section className="rounded-[22px] border border-slate-200 bg-white p-6">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2.5">
-                <div className="rounded-xl bg-[#2BAF3A]/10 p-2">
-                  <Users size={15} className="text-[#2BAF3A]" />
-                </div>
-                <h2 className="text-base font-black text-[#0A2C57]">Prijavljene ekipe</h2>
-              </div>
-              <span className="text-xs font-bold text-slate-400">{Math.round(progress)}%</span>
+          {/* Ekipe */}
+          <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-black text-sm uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Prijavljene ekipe</h2>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{Math.round(progress)}%</span>
             </div>
-
-            <div className="mb-5 h-2 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#2BAF3A] to-[#0A2C57] transition-all"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="mb-4 h-1.5 overflow-hidden rounded-full" style={{ background: "var(--bg-surface)" }}>
+              <div className="h-full rounded-full" style={{ width: `${progress}%`, background: "linear-gradient(90deg, #2baf3a, #8b5cf6)" }} />
             </div>
-
-            <div className="space-y-2.5">
-              {tournament.registrations.length === 0 ? (
-                <div className="rounded-[14px] border border-dashed border-slate-200 p-5 text-center">
-                  <p className="text-sm text-slate-400">Še ni prijavljenih ekip.</p>
-                </div>
-              ) : (
-                tournament.registrations.map((registration) => (
-                  <div key={registration.id} className="flex items-center justify-between rounded-[14px] bg-slate-50 px-4 py-3">
+            {tournament.registrations.length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>Ni prijavljenih ekip.</p>
+            ) : (
+              <div className="space-y-2">
+                {tournament.registrations.map((reg) => (
+                  <div key={reg.id} className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "var(--bg-surface)" }}>
                     <div>
-                      <p className="text-sm font-bold text-[#0A2C57]">{registration.team.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {registration.team.schoolName} · {registration.team.players.length} igralcev
-                      </p>
+                      <p className="font-bold text-sm">{reg.team.name}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{reg.team.schoolName}</p>
                     </div>
-                    <span className="rounded-full bg-[#e8f8ea] px-2.5 py-1 text-[11px] font-bold text-[#228f2f]">
-                      {getRegistrationLabel(registration.status)}
+                    <span className={`badge ${reg.status === "CONFIRMED" ? "badge-green" : "badge-gray"}`}>
+                      {getRegistrationLabel(reg.status)}
                     </span>
                   </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          {/* Messages */}
-          <section className="rounded-[22px] border border-slate-200 bg-white p-6">
-            <div className="flex items-center gap-2.5 mb-5">
-              <div className="rounded-xl bg-slate-100 p-2">
-                <MessageSquare size={15} className="text-slate-500" />
-              </div>
-              <h2 className="text-base font-black text-[#0A2C57]">Objave in sporočila</h2>
-            </div>
-
-            <div className="space-y-3">
-              {tournament.announcements.map((a) => (
-                <div key={a.id} className="rounded-[14px] border-l-4 border-[#2BAF3A] bg-[#f0fdf4] px-4 py-3">
-                  <p className="text-sm font-bold text-[#0A2C57]">{a.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">{a.content}</p>
-                </div>
-              ))}
-              {tournament.messages.map((msg) => (
-                <div key={msg.id} className="rounded-[14px] bg-slate-50 px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-[#0A2C57]">{msg.senderName}</p>
-                    <p className="text-[10px] text-slate-400">{formatDate(msg.createdAt)}</p>
-                  </div>
-                  <p className="mt-1.5 text-sm text-slate-600">{msg.content}</p>
-                </div>
-              ))}
-              {tournament.announcements.length === 0 && tournament.messages.length === 0 && (
-                <p className="text-sm text-slate-400">Ni objav ali sporočil.</p>
-              )}
-            </div>
-
-            <form action={createMessageAction} className="mt-5 space-y-3">
-              <input type="hidden" name="tournamentId" value={tournament.id} />
-              <textarea
-                name="content"
-                rows={3}
-                placeholder="Pošlji vprašanje organizatorju ali obvestilo ekipam…"
-                className="field"
-              />
-              <button className="flex items-center gap-2 rounded-[12px] bg-[#0A2C57] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#0d3570]">
-                <Send size={13} />
-                Pošlji
-              </button>
-            </form>
-          </section>
-        </div>
-
-        {/* Right sidebar */}
-        <div className="space-y-4">
-
-          {/* Follow / Register */}
-          <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="rounded-xl bg-[#2BAF3A]/10 p-2">
-                <Trophy size={15} className="text-[#2BAF3A]" />
-              </div>
-              <h2 className="text-base font-black text-[#0A2C57]">Prijava ekipe</h2>
-            </div>
-
-            {eligibleTeams.length > 0 ? (
-              <form action={joinTournamentAction} className="space-y-3">
-                <input type="hidden" name="tournamentId" value={tournament.id} />
-                <select name="teamId" defaultValue="" className="field">
-                  <option value="" disabled>Izberi ekipo…</option>
-                  {eligibleTeams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name} ({team.sport})
-                    </option>
-                  ))}
-                </select>
-                <button className="w-full rounded-[12px] bg-[#2BAF3A] py-2.5 text-sm font-black text-white shadow-md shadow-[#2BAF3A]/20 transition hover:bg-[#249933]">
-                  Prijavi ekipo
-                </button>
-              </form>
-            ) : teams.length > 0 ? (
-              <div className="rounded-[14px] bg-slate-50 p-4 text-sm text-slate-600">
-                <p className="font-semibold">Ni ekipe za <span className="text-[#0A2C57]">{tournament.sport}</span></p>
-                <Link href="/teams" className="mt-3 inline-block text-xs font-bold text-[#2BAF3A]">
-                  Upravljaj ekipe →
-                </Link>
-              </div>
-            ) : (
-              <div className="rounded-[14px] bg-slate-50 p-4 text-sm text-slate-600">
-                <p>Najprej ustvari ekipo za ta šport.</p>
-                <Link href="/teams" className="mt-2 inline-block text-xs font-bold text-[#2BAF3A]">
-                  Ustvari ekipo →
-                </Link>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Follow button */}
+          {/* Sporočila */}
+          <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <h2 className="font-black text-sm uppercase tracking-wider mb-4" style={{ color: "var(--text-muted)" }}>
+              <MessageSquare size={11} className="inline mr-1" />
+              Sporočila
+            </h2>
+            <div className="space-y-3 mb-4">
+              {tournament.announcements.map((a) => (
+                <div key={a.id} className="rounded-xl px-4 py-3" style={{ background: "rgba(43,175,58,0.08)", borderLeft: "3px solid #2baf3a" }}>
+                  <p className="font-bold text-sm">{a.title}</p>
+                  <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>{a.content}</p>
+                </div>
+              ))}
+              {tournament.messages.map((msg) => (
+                <div key={msg.id} className="rounded-xl px-4 py-3" style={{ background: "var(--bg-surface)" }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold">{msg.senderName}</p>
+                    <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{formatDate(msg.createdAt)}</p>
+                  </div>
+                  <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>{msg.content}</p>
+                </div>
+              ))}
+              {tournament.announcements.length === 0 && tournament.messages.length === 0 && (
+                <p className="text-sm text-center py-2" style={{ color: "var(--text-muted)" }}>Ni sporočil.</p>
+              )}
+            </div>
+            <form action={createMessageAction} className="space-y-2">
+              <input type="hidden" name="tournamentId" value={tournament.id} />
+              <textarea name="content" rows={2} placeholder="Pošlji sporočilo..." className="field" />
+              <button className="btn-primary py-2 px-4 text-sm"><Send size={12} />Pošlji</button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right sidebar */}
+        <div className="space-y-4">
+          {/* Prijava ekipe */}
+          <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <h2 className="font-black text-sm uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Prijava ekipe</h2>
+            {eligibleTeams.length > 0 ? (
+              <form action={joinTournamentAction} className="space-y-3">
+                <input type="hidden" name="tournamentId" value={tournament.id} />
+                <FormSelect
+                  name="teamId"
+                  required
+                  placeholder="Izberi ekipo..."
+                  options={eligibleTeams.map((t) => ({ label: t.name, value: t.id }))}
+                />
+                <button className="btn-primary w-full py-2.5">Prijavi ekipo</button>
+              </form>
+            ) : teams.length > 0 ? (
+              <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                <p>Ni ekipe za <strong>{tournament.sport}</strong>.</p>
+                <Link href="/teams" className="text-xs font-semibold mt-2 block" style={{ color: "#6ee77a" }}>Ustvari ekipo →</Link>
+              </div>
+            ) : (
+              <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                <p>Najprej ustvari ekipo.</p>
+                <Link href="/teams" className="text-xs font-semibold mt-2 block" style={{ color: "#6ee77a" }}>Ustvari ekipo →</Link>
+              </div>
+            )}
+          </div>
+
+          {/* Follow */}
           {!isOrganizer && (
-            <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-              <p className="mb-3 text-sm font-black text-[#0A2C57]">Sledi turnirju</p>
-              <p className="mb-4 text-xs text-slate-500">
-                Prejemaj obvestila o začetku tekem in rezultatih.
-              </p>
+            <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <h2 className="font-black text-sm uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Sledenje</h2>
+              <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Prejemaj obvestila o tekmah.</p>
               {following ? (
                 <form action={unfollowTournamentAction}>
                   <input type="hidden" name="tournamentId" value={tournament.id} />
-                  <button className="w-full rounded-[12px] border border-slate-200 py-2.5 text-sm font-bold text-slate-600 transition hover:border-rose-200 hover:text-rose-600">
-                    Prekini sledenje
-                  </button>
+                  <button className="btn-ghost w-full py-2.5 text-sm" style={{ color: "#f87171", borderColor: "rgba(239,68,68,0.3)" }}>Prekini sledenje</button>
                 </form>
               ) : (
                 <form action={followTournamentAction}>
                   <input type="hidden" name="tournamentId" value={tournament.id} />
-                  <button className="w-full rounded-[12px] bg-[#0A2C57] py-2.5 text-sm font-bold text-white transition hover:bg-[#0d3570]">
-                    Sledi turnirju
-                  </button>
+                  <button className="btn-primary w-full py-2.5 text-sm">Sledi turnirju</button>
                 </form>
               )}
             </div>
           )}
 
-          {/* Organizer quick links */}
+          {/* Organizer links */}
           {isOrganizer && (
-            <div className="rounded-[22px] border border-slate-200 bg-white p-5 space-y-2">
-              <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Organizator</p>
-              <Link
-                href={`/tournaments/${slug}/matches`}
-                className="flex items-center justify-between rounded-[14px] bg-[#2BAF3A]/8 px-4 py-3 text-sm font-bold text-[#2BAF3A] transition hover:bg-[#2BAF3A]/15"
-              >
-                Upravljaj tekme
-                <span>→</span>
+            <div className="rounded-xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Organizator</p>
+              <Link href={`/tournaments/${slug}/matches`} className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-bold mb-2" style={{ background: "rgba(43,175,58,0.12)", color: "#6ee77a", border: "1px solid rgba(43,175,58,0.2)" }}>
+                Upravljaj tekme <span>→</span>
               </Link>
-              <a
-                href={publicUrl}
-                target="_blank"
-                className="flex items-center justify-between rounded-[14px] bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
-              >
-                Javna lestvica
-                <ExternalLink size={13} />
-              </a>
             </div>
           )}
-
-          {/* Steps */}
-          <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-            <h2 className="mb-4 text-sm font-black text-[#0A2C57]">Kako deluje?</h2>
-            <div className="space-y-3">
-              {[
-                "Organizator ustvari turnir in razporedi tekme.",
-                "Šole prijavijo ekipe in sledijo turnirju.",
-                "Rezultati se vnašajo po vsaki tekmi.",
-                "Lestvica se samodejno posodablja v živo.",
-              ].map((step, i) => (
-                <div key={i} className="flex items-start gap-3 text-xs text-slate-600">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0A2C57]/8 text-[10px] font-black text-[#0A2C57]">
-                    {i + 1}
-                  </span>
-                  {step}
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </AppShell>

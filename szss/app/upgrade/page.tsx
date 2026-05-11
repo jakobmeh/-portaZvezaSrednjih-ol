@@ -1,166 +1,240 @@
 import Link from "next/link";
-import { Bell, Calendar, CheckCircle2, BarChart3, Trophy, Zap } from "lucide-react";
+import { Star, Shield, Check, Trophy, Zap, Calendar, CreditCard } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { StripeCheckoutButton } from "@/components/stripe-checkout-button";
+import { CancelSubscriptionButton } from "@/components/cancel-subscription-button";
 import { requireUser } from "@/lib/auth";
 import { isProUser } from "@/lib/utils";
+import { getSchoolLicense } from "@/lib/data";
 
-const proFeatures = [
-  {
-    icon: Trophy,
-    title: "Ustvari turnirje",
-    description: "Objavi turnirje za katerikoli šport s popolnim urejanjem.",
-  },
-  {
-    icon: Calendar,
-    title: "Urnik tekem",
-    description: "Razporedi tekme, vnesi rezultate in upravljaj skupine.",
-  },
-  {
-    icon: BarChart3,
-    title: "Živa lestvica",
-    description: "Avtomatski izračun lestvice, javno dostopen brez prijave.",
-  },
-  {
-    icon: Bell,
-    title: "Obvestila udeležencev",
-    description: "Ekipe prejmejo obvestila o začetku tekem in rezultatih.",
-  },
-  {
-    icon: Zap,
-    title: "Javna povezava",
-    description: "Deli javno URL za lestvico z gledalci in organizatorji.",
-  },
-];
-
-export default async function UpgradePage() {
+export default async function UpgradePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ payment?: string }>;
+}) {
   const user = await requireUser();
-  const already = isProUser(user);
+  const pro = isProUser(user);
+  const params = await searchParams;
+  const schoolLicense = await getSchoolLicense(user.schoolName);
 
   return (
     <AppShell
       user={user}
       activePath="/upgrade"
-      title="Pro načrt"
-      description="Postani Pro organizator in objavljaj turnirje za svojo šolo."
+      title="Nadgradi račun"
+      description="Organiziraj turnirje in pomagaj svoji šoli do zmage."
     >
-      <div className="mx-auto max-w-3xl">
+      {params.payment === "success" && (
+        <div className="mb-6 rounded-2xl px-5 py-4" style={{ background: "rgba(43,175,58,0.1)", border: "1px solid rgba(43,175,58,0.3)", color: "#6ee77a" }}>
+          🎉 Plačilo uspešno! Tvoj dostop se aktivira v nekaj sekundah.
+        </div>
+      )}
+      {params.payment === "cancelled" && (
+        <div className="mb-6 rounded-2xl px-5 py-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+          Plačilo je bilo preklicano. Poskusi znova.
+        </div>
+      )}
 
-        {already ? (
-          <div className="rounded-[22px] bg-[#f0fdf4] border border-[#2BAF3A]/20 p-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#2BAF3A]/15">
-              <CheckCircle2 size={26} className="text-[#2BAF3A]" />
+      {pro ? (
+        <div className="grid gap-5 max-w-4xl md:grid-cols-2">
+
+          {/* Aktivna Pro naročnina */}
+          <div className="flex flex-col rounded-2xl p-6" style={{ background: "linear-gradient(135deg, rgba(43,175,58,0.15) 0%, rgba(43,175,58,0.05) 100%)", border: "1px solid rgba(43,175,58,0.35)" }}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: "rgba(43,175,58,0.2)" }}>
+                <Star size={16} style={{ color: "#6ee77a" }} />
+              </div>
+              <div>
+                <p className="font-black" style={{ fontFamily: "var(--font-heading)" }}>Pro naročnina</p>
+                <p className="text-xs font-bold" style={{ color: "#6ee77a" }}>● Aktivna</p>
+              </div>
             </div>
-            <h2 className="text-2xl font-black text-[#0A2C57]">Že imaš Pro dostop!</h2>
-            <p className="mt-2 text-slate-600">Ustvari turnir ali upravljaj obstoječe.</p>
-            <Link
-              href="/tournaments/create"
-              className="mt-6 inline-block rounded-[14px] bg-[#2BAF3A] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#2BAF3A]/25 transition hover:bg-[#249933]"
-            >
-              Ustvari turnir
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-6">
 
-            {/* Hero card */}
-            <div className="rounded-[28px] bg-[#0A2C57] p-8 text-white">
-              <div className="flex items-start gap-4">
-                <div className="rounded-2xl bg-[#2BAF3A]/20 p-3">
-                  <Zap size={24} className="text-[#8EF29A]" />
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "var(--bg-card)" }}>
+                <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <CreditCard size={13} /> Znesek
                 </div>
-                <div>
-                  <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
-                    Pro načrt
+                <span className="font-bold text-sm">5€ / mesec</span>
+              </div>
+              {user.proUntil && (
+                <div className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "var(--bg-card)" }}>
+                  <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                    <Calendar size={13} />
+                    {user.stripeSubscriptionId ? "Naslednji zaračun" : "Dostop do"}
+                  </div>
+                  <span className="font-bold text-sm">
+                    {new Date(user.proUntil).toLocaleDateString("sl-SI", { day: "2-digit", month: "long", year: "numeric" })}
                   </span>
-                  <h2 className="mt-3 text-3xl font-black">5€ / mesec</h2>
-                  <p className="mt-2 text-white/65 max-w-md">
-                    Organiziraj in vodì turnirje za svojo šolo. Vnašaj rezultate, deli živoažurno lestvico in obvešaj ekipe v realnem času.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <Link href="/tournaments/create" className="btn-primary w-full py-2.5 text-sm flex justify-center">
+                <Trophy size={13} /> Ustvari turnir
+              </Link>
+              <CancelSubscriptionButton />
+            </div>
+          </div>
+
+          {/* Šolska licenca – vedno vidna */}
+          <div className="flex flex-col rounded-2xl p-6" style={{ background: "var(--bg-card)", border: `1px solid ${schoolLicense ? "rgba(43,175,58,0.35)" : "rgba(245,158,11,0.3)"}` }}>
+            <div className="badge badge-pro mb-4 self-start"><Shield size={9} />Šolska licenca</div>
+
+            {schoolLicense ? (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold" style={{ color: "#6ee77a" }}>● Aktivna za tvojo šolo</span>
+                </div>
+                <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+                  Šola <strong>{user.schoolName}</strong> ima aktivno licenco.
+                </p>
+                <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "var(--bg-surface)" }}>
+                  <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Invite koda za dijake:</p>
+                  <p className="text-2xl font-black tracking-widest" style={{ fontFamily: "monospace", color: "#6ee77a" }}>
+                    {schoolLicense.inviteToken}
                   </p>
                 </div>
-              </div>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {proFeatures.map(({ icon: Icon, title, description }) => (
-                  <div key={title} className="flex items-start gap-3 rounded-[16px] bg-white/8 p-4">
-                    <div className="mt-0.5 rounded-lg bg-[#2BAF3A]/20 p-1.5 shrink-0">
-                      <Icon size={14} className="text-[#8EF29A]" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold">{title}</p>
-                      <p className="mt-0.5 text-xs text-white/55 leading-4">{description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* CTA – no payment provider yet */}
-              <div className="mt-8 rounded-[18px] bg-white/10 p-5">
-                <p className="text-sm font-bold text-white">Kako nadgraditi?</p>
-                <p className="mt-2 text-xs leading-5 text-white/60">
-                  Trenutno naročnina poteka ročno. Kontaktiraj administratorja portala ali nam pošlji sporočilo na{" "}
-                  <span className="font-bold text-[#8EF29A]">szss@sportna-zveza.si</span>{" "}
-                  in vam aktiviramo Pro dostop v 24 urah.
-                </p>
-                <a
-                  href="mailto:szss@sportna-zveza.si?subject=Pro narocnina"
-                  className="mt-4 inline-flex items-center gap-2 rounded-[12px] bg-[#2BAF3A] px-5 py-2.5 text-sm font-black text-white shadow-md shadow-[#2BAF3A]/30 transition hover:bg-[#249933]"
+                {schoolLicense.expiresAt && (
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    Velja do: {new Date(schoolLicense.expiresAt).toLocaleDateString("sl-SI")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="text-4xl font-black gradient-text-gold mb-1" style={{ fontFamily: "var(--font-heading)" }}>500€</div>
+                <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>letno · cela šola · neomejeno dijakov</p>
+                <ul className="space-y-2 flex-1 mb-5">
+                  {["Pro za vse dijake šole", "Invite koda za dijake", "Novi dijaki dobijo Pro ob registraciji", "1 leto dostopa"].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                      <Check size={12} style={{ color: "#fbbf24" }} /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <StripeCheckoutButton
+                  type="school"
+                  schoolName={user.schoolName}
+                  className="btn-primary w-full py-2.5 text-sm"
+                  style={{ background: "#f59e0b" }}
                 >
-                  <Zap size={14} />
-                  Zahtevaj Pro dostop
-                </a>
-              </div>
-            </div>
+                  <Shield size={13} /> Kupi za šolo – 500€ / leto
+                </StripeCheckoutButton>
+                <p className="mt-2 text-xs text-center" style={{ color: "var(--text-muted)" }}>
+                  Za: <strong style={{ color: "var(--text-secondary)" }}>{user.schoolName}</strong>
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-5 max-w-4xl md:grid-cols-2">
 
-            {/* Free plan comparison */}
-            <div className="rounded-[22px] border border-slate-200 bg-white p-6">
-              <h3 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-400">
-                Primerjava načrtov
-              </h3>
-              <div className="overflow-hidden rounded-[14px] border border-slate-100">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50">
-                      <th className="px-4 py-3 text-left font-black text-[#0A2C57]">Funkcija</th>
-                      <th className="px-4 py-3 text-center font-black text-slate-500">Brezplačno</th>
-                      <th className="px-4 py-3 text-center font-black text-[#2BAF3A]">Pro</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      ["Ogled turnirjev", true, true],
-                      ["Prijava ekipe na turnir", true, true],
-                      ["Sledenje turnirjem", true, true],
-                      ["Ogled javne lestvice", true, true],
-                      ["Ustvarjanje turnirjev", false, true],
-                      ["Vnos rezultatov", false, true],
-                      ["Upravljanje urnika tekem", false, true],
-                      ["Obvestila ekipam", false, true],
-                    ].map(([feature, free, pro]) => (
-                      <tr key={String(feature)} className="border-b border-slate-50 last:border-0">
-                        <td className="px-4 py-3 text-slate-700">{feature}</td>
-                        <td className="px-4 py-3 text-center">
-                          {free ? (
-                            <CheckCircle2 size={16} className="mx-auto text-slate-400" />
-                          ) : (
-                            <span className="text-slate-300">–</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {pro ? (
-                            <CheckCircle2 size={16} className="mx-auto text-[#2BAF3A]" />
-                          ) : (
-                            <span className="text-slate-300">–</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* Individualni Pro */}
+          <div className="relative flex flex-col rounded-2xl p-6" style={{ background: "linear-gradient(135deg, rgba(43,175,58,0.15) 0%, rgba(43,175,58,0.06) 100%)", border: "1px solid rgba(43,175,58,0.35)" }}>
+            <div className="absolute -top-3 left-6">
+              <span className="badge badge-green px-3 py-1">Za posameznike</span>
+            </div>
+            <div className="badge badge-pro mb-4 self-start"><Star size={9} />Pro</div>
+            <div className="text-5xl font-black gradient-text" style={{ fontFamily: "var(--font-heading)" }}>5€</div>
+            <p className="mt-1 text-sm mb-6" style={{ color: "var(--text-muted)" }}>na mesec · obnovljivo</p>
+            <ul className="space-y-3 flex-1">
+              {[
+                "Ustvarjanje turnirjev",
+                "Upravljanje tekem in rezultatov",
+                "Samoregistracija z QR kodo",
+                "Obvestila sledilcem v realnem času",
+                "Napredna statistika",
+                "Vse funkcije brezplačnega računa",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <Check size={13} style={{ color: "#6ee77a" }} /> {f}
+                </li>
+              ))}
+            </ul>
+            <StripeCheckoutButton
+              type="pro_monthly"
+              className="btn-primary w-full py-3 text-base mt-6"
+            >
+              <Zap size={13} />
+              Naroči se – 5€ / mesec
+            </StripeCheckoutButton>
+            <p className="mt-2 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+              Varno plačilo prek Stripe · Visa, Mastercard, Amex
+            </p>
+          </div>
+
+          {/* Šolska licenca */}
+          <div className="flex flex-col rounded-2xl p-6" style={{ background: "var(--bg-card)", border: `1px solid ${schoolLicense ? "rgba(43,175,58,0.35)" : "rgba(245,158,11,0.3)"}` }}>
+            <div className="badge badge-pro mb-4 self-start"><Shield size={9} />Šolska licenca</div>
+
+            {schoolLicense ? (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <Check size={14} style={{ color: "#6ee77a" }} />
+                  <span className="font-bold text-sm" style={{ color: "#6ee77a" }}>Licenca aktivna za tvojo šolo</span>
+                </div>
+                <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+                  <strong>{user.schoolName}</strong> ima aktiven šolski paket.
+                </p>
+                <div className="rounded-2xl px-5 py-4 mb-3" style={{ background: "var(--bg-surface)", border: "1px solid rgba(245,158,11,0.4)" }}>
+                  <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Invite koda za dijake:</p>
+                  <p className="text-3xl font-black tracking-widest" style={{ fontFamily: "monospace", color: "#fbbf24" }}>
+                    {schoolLicense.inviteToken}
+                  </p>
+                </div>
+                {schoolLicense.expiresAt && (
+                  <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                    ⏰ Velja do: <strong style={{ color: "var(--text-secondary)" }}>{new Date(schoolLicense.expiresAt).toLocaleDateString("sl-SI")}</strong>
+                  </p>
+                )}
+                <div className="rounded-xl p-3 text-xs mt-auto" style={{ background: "rgba(43,175,58,0.06)", color: "var(--text-muted)" }}>
+                  Pošlji kodo dijakom – ob registraciji samodejno dobijo Pro dostop.
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl font-black gradient-text-gold mb-1" style={{ fontFamily: "var(--font-heading)" }}>500€</div>
+                <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>letno · cela šola · neomejeno dijakov</p>
+                <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
+                  Celotna šola dobi Pro dostop. Prejmeš invite kodo za dijake.
+                </p>
+                <ul className="space-y-2 flex-1 mb-5">
+                  {["Pro za vse dijake šole", "Invite koda za šolo", "Novi dijaki dobijo Pro ob registraciji", "1 leto dostopa"].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                      <Check size={12} style={{ color: "#fbbf24" }} /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <StripeCheckoutButton
+                  type="school"
+                  schoolName={user.schoolName}
+                  className="btn-primary w-full py-2.5 text-sm"
+                  style={{ background: "#f59e0b" }}
+                >
+                  <Shield size={13} /> Kupi za šolo – 500€ / leto
+                </StripeCheckoutButton>
+                <p className="mt-2 text-xs text-center" style={{ color: "var(--text-muted)" }}>
+                  Za: <strong style={{ color: "var(--text-secondary)" }}>{user.schoolName}</strong>
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Brezplačno */}
+          <div className="md:col-span-2 rounded-2xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Brezplačen račun vključuje</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {["Prijava na turnirje", "Ogled lestvic", "Ustvarjanje ekip", "Šolski profil"].map((f) => (
+                <div key={f} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <Check size={12} style={{ color: "#4ade80" }} /> {f}
+                </div>
+              ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </AppShell>
   );
 }

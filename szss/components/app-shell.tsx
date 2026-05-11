@@ -1,17 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
-  Bell,
-  Building2,
-  LayoutDashboard,
-  LogOut,
-  ShieldCheck,
-  Trophy,
-  Users,
-  Zap,
+  Bell, Building2, LayoutDashboard, LogOut,
+  ShieldCheck, Trophy, Users, Zap, BarChart3, Star,
 } from "lucide-react";
-import { Logo } from "./logo";
 import { logoutAction } from "@/lib/actions";
-import { getRoleLabel, isProUser } from "@/lib/utils";
+import { isProUser } from "@/lib/utils";
 
 type ShellUser = {
   fullName: string;
@@ -23,67 +17,66 @@ type ShellUser = {
 
 const navItems = [
   { href: "/dashboard", label: "Nadzorna plošča", icon: LayoutDashboard },
-  { href: "/school", label: "Moja šola", icon: Building2 },
   { href: "/tournaments", label: "Turnirji", icon: Trophy },
+  { href: "/leaderboard", label: "Lestvice", icon: BarChart3 },
   { href: "/teams", label: "Ekipe", icon: Users },
+  { href: "/school", label: "Moja šola", icon: Building2 },
 ];
 
 function Initials({ name }: { name: string }) {
   const parts = name.trim().split(" ");
-  const init = parts.length >= 2
-    ? parts[0][0] + parts[parts.length - 1][0]
-    : parts[0].slice(0, 2);
+  const init = parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2);
   return <>{init.toUpperCase()}</>;
 }
 
 export function AppShell({
-  user,
-  activePath,
-  title,
-  description,
-  children,
-  actions,
+  user, activePath, title, description, children, actions,
 }: {
   user: ShellUser;
   activePath: string;
   title: string;
-  description: string;
+  description?: string;
   children: React.ReactNode;
   actions?: React.ReactNode;
 }) {
   const pro = isProUser(user);
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8]">
-      <div className="mx-auto grid min-h-screen max-w-[1600px] gap-4 p-4 lg:grid-cols-[260px_1fr]">
+    <div className="min-h-screen" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
 
-        {/* ── Sidebar ── */}
-        <aside className="flex flex-col gap-3 rounded-[28px] bg-[#0A2C57] p-4 text-white shadow-2xl shadow-[#0A2C57]/20 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:self-start">
+      {/* ── Top Nav ── */}
+      <header
+        className="fixed top-0 left-0 right-0 z-50 h-14"
+        style={{ background: "rgba(6,8,15,0.92)", borderBottom: "1px solid var(--border)", backdropFilter: "blur(20px)" }}
+      >
+        <div className="mx-auto flex h-full max-w-7xl items-center gap-2 px-5">
 
           {/* Logo */}
-          <div className="rounded-[20px] bg-white/[0.07] p-3.5">
-            <Logo />
-          </div>
+          <Link href="/" className="mr-4 shrink-0">
+            <Image
+              src="/szss-logo-transparent.png"
+              alt="ŠZSŠ"
+              width={72}
+              height={28}
+              className="h-7 w-auto object-contain"
+              priority
+            />
+          </Link>
 
-          {/* Nav */}
-          <nav className="flex flex-col gap-0.5 pt-1">
-            <p className="mb-1.5 px-3 text-[10px] font-black uppercase tracking-[0.35em] text-white/25">
-              Menu
-            </p>
+          {/* Nav links */}
+          <nav className="flex items-center gap-0.5 flex-1">
             {navItems.map((item) => {
-              const Icon = item.icon;
               const active = activePath === item.href || activePath.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-sm font-semibold transition-all ${
-                    active
-                      ? "bg-white text-[#0A2C57] shadow-md"
-                      : "text-white/60 hover:bg-white/10 hover:text-white"
-                  }`}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all"
+                  style={active
+                    ? { background: "rgba(43,175,58,0.12)", color: "#6ee77a" }
+                    : { color: "var(--text-muted)" }
+                  }
                 >
-                  <Icon size={16} className={active ? "text-[#2BAF3A]" : "opacity-70"} />
                   {item.label}
                 </Link>
               );
@@ -91,114 +84,103 @@ export function AppShell({
             {user.role === "ADMIN" && (
               <Link
                 href="/admin"
-                className={`flex items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-sm font-semibold transition-all ${
-                  activePath.startsWith("/admin")
-                    ? "bg-white text-[#0A2C57] shadow-md"
-                    : "text-white/60 hover:bg-white/10 hover:text-white"
-                }`}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ml-1"
+                style={activePath.startsWith("/admin")
+                  ? { background: "rgba(239,68,68,0.12)", color: "#f87171" }
+                  : { color: "var(--text-muted)" }
+                }
               >
-                <ShieldCheck size={16} className={activePath.startsWith("/admin") ? "text-[#2BAF3A]" : "opacity-70"} />
-                Admin panel
+                <ShieldCheck size={13} />
+                Admin
               </Link>
             )}
           </nav>
 
-          {/* Spacer */}
-          <div className="flex-1" />
+          {/* Right side */}
+          <div className="flex items-center gap-2">
 
-          {/* Upgrade CTA for non-pro */}
-          {!pro && (
+            {/* Upgrade pill for non-pro */}
+            {!pro && (
+              <Link
+                href="/upgrade"
+                className="hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:flex"
+                style={{ background: "rgba(43,175,58,0.12)", color: "#6ee77a", border: "1px solid rgba(43,175,58,0.25)" }}
+              >
+                <Zap size={11} />
+                Pro – 5€
+              </Link>
+            )}
+            {pro && user.role !== "ADMIN" && (
+              <span
+                className="hidden items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold sm:flex"
+                style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}
+              >
+                <Star size={10} />
+                Pro
+              </span>
+            )}
+
+            {/* Notifications */}
             <Link
-              href="/upgrade"
-              className="flex items-center gap-2.5 rounded-[18px] bg-gradient-to-r from-[#2BAF3A]/30 to-[#2BAF3A]/10 p-3.5 ring-1 ring-[#2BAF3A]/30 transition hover:ring-[#2BAF3A]/60"
+              href="/notifications"
+              className="flex h-8 w-8 items-center justify-center rounded-lg transition-all"
+              style={{
+                background: activePath === "/notifications" ? "rgba(43,175,58,0.12)" : "rgba(255,255,255,0.05)",
+                color: activePath === "/notifications" ? "#6ee77a" : "var(--text-muted)",
+              }}
             >
-              <div className="rounded-lg bg-[#2BAF3A]/25 p-1.5">
-                <Zap size={13} className="text-[#8EF29A]" />
-              </div>
-              <div>
-                <p className="text-xs font-black text-white">Nadgradi na Pro</p>
-                <p className="mt-0.5 text-[10px] leading-3 text-white/45">5€/mesec · ustvari turnirje</p>
-              </div>
+              <Bell size={15} />
             </Link>
-          )}
 
-          {/* Notifications */}
-          <Link
-            href="/notifications"
-            className={`rounded-[18px] p-3.5 ring-1 transition ${
-              activePath === "/notifications"
-                ? "bg-[#2BAF3A]/20 ring-[#2BAF3A]/40"
-                : "bg-[linear-gradient(135deg,rgba(43,175,58,0.18),rgba(43,175,58,0.04))] ring-[#2BAF3A]/15 hover:ring-[#2BAF3A]/30"
-            }`}
-          >
-            <div className="flex items-start gap-2.5">
-              <div className="mt-0.5 rounded-lg bg-[#2BAF3A]/25 p-1.5">
-                <Bell size={13} className="text-[#8EF29A]" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white">Obvestila</p>
-                <p className="mt-0.5 text-[11px] leading-4 text-white/50">
-                  Prijave, tekme in novosti.
-                </p>
-              </div>
-            </div>
-          </Link>
-
-          {/* Profile */}
-          <div className="rounded-[18px] bg-white/[0.07] p-3.5 ring-1 ring-white/[0.07]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2BAF3A] text-xs font-black text-white">
+            {/* User menu */}
+            <div className="flex items-center gap-2 rounded-lg pl-2 pr-3 py-1.5" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)" }}>
+              <div
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
+                style={{ background: "linear-gradient(135deg, #2baf3a, #0a2c57)" }}
+              >
                 <Initials name={user.fullName} />
               </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold leading-tight">{user.fullName}</p>
-                <p className="mt-0.5 truncate text-[11px] text-white/45">{user.schoolName}</p>
-              </div>
-            </div>
-            <div className="mt-2.5 flex items-center gap-2">
-              <span className="rounded-full bg-[#2BAF3A]/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#8EF29A]">
-                {getRoleLabel(user.role)}
+              <span className="hidden text-sm font-medium sm:block" style={{ color: "var(--text-secondary)" }}>
+                {user.fullName.split(" ")[0]}
               </span>
-              {pro && user.role !== "ADMIN" && (
-                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
-                  Pro
-                </span>
+              <form action={logoutAction}>
+                <button
+                  className="flex items-center gap-1 text-xs transition-all"
+                  style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+                  title="Odjava"
+                >
+                  <LogOut size={13} />
+                </button>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      </header>
+
+      {/* ── Page ── */}
+      <div className="pt-14">
+        <div className="mx-auto max-w-7xl px-5 py-8">
+
+          {/* Page header */}
+          {(title || actions) && (
+            <div className="mb-7 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight md:text-3xl" style={{ fontFamily: "var(--font-heading)" }}>
+                  {title}
+                </h1>
+                {description && (
+                  <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{description}</p>
+                )}
+              </div>
+              {actions && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
               )}
             </div>
-            <form action={logoutAction} className="mt-3">
-              <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/8 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-rose-500/20 hover:text-rose-300">
-                <LogOut size={13} />
-                Odjava
-              </button>
-            </form>
-          </div>
-        </aside>
+          )}
 
-        {/* ── Main ── */}
-        <main className="flex min-h-[calc(100vh-2rem)] flex-col rounded-[28px] bg-white shadow-lg shadow-slate-200/60">
-          {/* Page header */}
-          <div className="flex flex-col gap-4 border-b border-slate-100 px-7 py-6 md:flex-row md:items-center md:justify-between md:px-10">
-            <div>
-              <span className="inline-flex items-center rounded-full bg-[#2BAF3A]/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">
-                ŠZSŠ portal
-              </span>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-[#0A2C57] md:text-4xl">
-                {title}
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-500">{description}</p>
-            </div>
-            {actions && (
-              <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-                {actions}
-              </div>
-            )}
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 px-7 py-7 md:px-10">
-            {children}
-          </div>
-        </main>
+          {children}
+        </div>
       </div>
     </div>
   );

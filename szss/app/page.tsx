@@ -1,436 +1,235 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, CalendarDays, MapPin, ShieldCheck, Trophy, Users, Users2 } from "lucide-react";
-import { Logo } from "@/components/logo";
-import { loginAction, registerAction } from "@/lib/actions";
+import { Trophy, Users, BarChart3, Zap, Star, Shield, ArrowRight, ChevronRight } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
-import { getTournamentList } from "@/lib/data";
-import { SCHOOL_OPTIONS } from "@/lib/schools";
-import { SPORTS, formatDate } from "@/lib/utils";
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    modal?: string;
-    loginError?: string;
-    registerError?: string;
-    registered?: string;
-    q?: string;
-    sport?: string;
-    status?: string;
-  }>;
-}) {
+export default async function LandingPage() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
-
-  const params = await searchParams;
-  const data = await getTournamentList({ q: params.q, sport: params.sport, status: params.status });
-  const activeModal =
-    params.modal === "register" ? "register" : params.modal === "login" ? "login" : null;
-
   return (
-    <div className="min-h-screen bg-[#f0f4f8]">
-      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
+    <div className="min-h-screen" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
 
-        {/* ── Header ── */}
-        <header className="flex items-center justify-between rounded-[24px] bg-[#0A2C57] px-6 py-4 shadow-2xl shadow-[#0A2C57]/20">
-          <Logo />
+      {/* Nav */}
+      <nav className="sticky top-0 z-50 backdrop-blur-xl" style={{ borderBottom: "1px solid var(--border)", background: "rgba(6,8,15,0.88)" }}>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
+          <Link href="/">
+            <Image
+              src="/szss-logo-transparent.png"
+              alt="ŠZSŠ"
+              width={100}
+              height={40}
+              className="h-9 w-auto object-contain"
+              priority
+            />
+          </Link>
           <div className="flex items-center gap-2">
-            <Link
-              href="/?modal=login"
-              className="rounded-[14px] border border-white/20 px-4 py-2.5 text-sm font-bold text-white/80 transition hover:bg-white/10 hover:text-white"
-            >
+            <Link href="/leaderboard" className="hidden text-sm font-semibold sm:block" style={{ color: "var(--text-secondary)" }}>
+              Lestvice
+            </Link>
+            <Link href="/tournaments" className="ml-4 hidden text-sm font-semibold sm:block" style={{ color: "var(--text-secondary)" }}>
+              Turnirji
+            </Link>
+            <Link href="/login" className="btn-ghost ml-4 py-2 px-4 text-sm">
               Prijava
             </Link>
-            <Link
-              href="/?modal=register"
-              className="rounded-[14px] bg-[#2BAF3A] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#2BAF3A]/30 transition hover:bg-[#249933]"
-            >
+            <Link href="/register" className="btn-primary py-2 px-4 text-sm">
               Registracija
             </Link>
           </div>
-        </header>
+        </div>
+      </nav>
 
-        {/* ── Hero ── */}
-        <section className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+      {/* Hero */}
+      <section className="relative overflow-hidden px-5 pb-24 pt-16 text-center">
+        {/* Glow */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-[500px] w-[800px] rounded-full opacity-[0.06]" style={{ background: "radial-gradient(ellipse, #2baf3a 0%, transparent 70%)" }} />
+        </div>
 
-          {/* Main hero card */}
-          <div className="relative overflow-hidden rounded-[24px] bg-white p-8 shadow-sm ring-1 ring-slate-200 md:p-10">
-            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#2BAF3A]/6 blur-3xl" />
-            <div className="relative">
-              <span className="inline-flex items-center rounded-full bg-[#2BAF3A]/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
-                Športna zveza srednjih šol
-              </span>
-              <h1 className="mt-5 max-w-xl text-5xl font-black leading-[1] tracking-tight text-[#0A2C57] md:text-6xl">
-                Turnirji, ekipe in šole na enem mestu.
-              </h1>
-              <p className="mt-5 max-w-lg text-base leading-7 text-slate-500">
-                Javni pregled turnirjev, hitra registracija šolskih ekip in enoten sistem za
-                dijake, mentorje ter organizatorje. Brez zmede, brez ročnega usklajevanja.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                <span className="rounded-full border border-[#2BAF3A]/25 bg-[#2BAF3A]/8 px-3.5 py-1.5 text-xs font-semibold text-[#2BAF3A]">
-                  Registracija po dejanski srednji šoli
-                </span>
-                <span className="rounded-full border border-[#0A2C57]/15 bg-[#0A2C57]/6 px-3.5 py-1.5 text-xs font-semibold text-[#0A2C57]">
-                  Admin odobritev novih računov
-                </span>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/?modal=register"
-                  className="inline-flex items-center gap-2 rounded-[14px] bg-[#2BAF3A] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#2BAF3A]/25 transition hover:bg-[#249933]"
-                >
-                  Ustvari račun <ArrowRight size={15} />
-                </Link>
-                <Link
-                  href="/?modal=login"
-                  className="inline-flex items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:shadow-sm"
-                >
-                  Imam račun
-                </Link>
-              </div>
-
-              {/* Stats */}
-              <div className="mt-8 grid grid-cols-3 gap-3 border-t border-slate-100 pt-6">
-                {[
-                  { label: "Odprti turnirji", value: data.tournaments.length, sub: "Aktualni dogodki" },
-                  { label: "Športne kategorije", value: SPORTS.length, sub: "Od futsala do atletike" },
-                  { label: "Šole v sistemu", value: SCHOOL_OPTIONS.length, sub: "Po celotni Sloveniji" },
-                ].map(({ label, value, sub }) => (
-                  <div key={label} className="rounded-[16px] bg-slate-50 p-4 text-center">
-                    <p className="text-3xl font-black text-[#0A2C57]">{value}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">{label}</p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>
-                  </div>
-                ))}
-              </div>
+        <div className="relative mx-auto max-w-4xl">
+          {/* Logo large */}
+          <div className="mb-8 flex justify-center">
+            <div className="rounded-2xl p-5" style={{ background: "rgba(43,175,58,0.08)", border: "1px solid rgba(43,175,58,0.2)" }}>
+              <Image
+                src="/szss-logo-transparent.png"
+                alt="ŠZSŠ"
+                width={200}
+                height={80}
+                className="h-16 w-auto object-contain"
+                priority
+              />
             </div>
           </div>
 
-          {/* Feature cards */}
-          <div className="flex flex-col gap-4">
-            {[
-              {
-                icon: ShieldCheck,
-                title: "Pametna prijava",
-                text: "Prijava in registracija se odpreta v pojavnem oknu — brez zapuščanja strani.",
-                color: "bg-[#0A2C57]",
-              },
-              {
-                icon: Users2,
-                title: "Šolske ekipe",
-                text: "Vsaka ekipa pripada svoji šoli. Člane dodajaš iz potrjenih sošolcev.",
-                color: "bg-amber-500",
-              },
-              {
-                icon: Trophy,
-                title: "Pregled turnirjev",
-                text: "Na prvi strani vidiš šport, lokacijo, zasedenost in datum vsakega turnirja.",
-                color: "bg-[#2BAF3A]",
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.title}
-                  className="flex items-start gap-4 rounded-[20px] bg-white p-5 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${item.color} text-white`}>
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black text-[#0A2C57]">{item.title}</h2>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">{item.text}</p>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="badge badge-green mb-5 mx-auto">
+            <Trophy size={10} />
+            Uradna platforma ŠZSŠ
           </div>
-        </section>
 
-        {/* ── Tournament list ── */}
-        <section className="mt-4 rounded-[24px] bg-white p-6 shadow-sm ring-1 ring-slate-200 md:p-8">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">
-                Javni pregled
-              </span>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-[#0A2C57]">
-                Aktualni turnirji
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Filtriraj in odpri račun za prijavo ekip.
-              </p>
+          <h1 className="text-5xl font-black leading-[1.05] tracking-tight md:text-7xl" style={{ fontFamily: "var(--font-heading)" }}>
+            Tekmuj.{" "}
+            <span className="gradient-text">Zmaguji.</span>
+            <br />
+            Pusti sled.
+          </h1>
+
+          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Platforma za organizacijo in prijavo na šolska športna tekmovanja.
+            Ustvarjaj turnirje, oblikuj ekipe in tekmuj z dijaki iz celotne Slovenije.
+          </p>
+
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link href="/register" className="btn-primary px-8 py-3 text-base">
+              Začni brezplačno
+              <ArrowRight size={16} />
+            </Link>
+            <Link href="/tournaments" className="btn-ghost px-8 py-3 text-base">
+              Poglej turnirje
+            </Link>
+          </div>
+
+          <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
+            Brezplačna registracija · Ni kreditne kartice · Takoj na voljo
+          </p>
+        </div>
+      </section>
+
+      {/* Stats strip */}
+      <div style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-px px-5 py-8 md:grid-cols-4">
+          {[
+            { value: "180+", label: "Šol v sistemu" },
+            { value: "9", label: "Športov" },
+            { value: "∞", label: "Ekip" },
+            { value: "Live", label: "Rezultati v živo" },
+          ].map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="text-3xl font-black gradient-text" style={{ fontFamily: "var(--font-heading)" }}>{stat.value}</div>
+              <div className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{stat.label}</div>
             </div>
-          </div>
-
-          {/* Filters */}
-          <form className="mb-6 grid gap-3 rounded-[18px] bg-slate-50 p-4 md:grid-cols-4">
-            <input
-              name="q"
-              defaultValue={params.q}
-              placeholder="Naziv ali lokacija…"
-              className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm"
-            />
-            <select
-              name="sport"
-              defaultValue={params.sport ?? ""}
-              className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700"
-            >
-              <option value="">Vsi športi</option>
-              {data.sports.map((sport) => (
-                <option key={sport} value={sport}>{sport}</option>
-              ))}
-            </select>
-            <select
-              name="status"
-              defaultValue={params.status ?? ""}
-              className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700"
-            >
-              <option value="">Vsi statusi</option>
-              <option value="odprt">Odprt</option>
-              <option value="poln">Poln</option>
-              <option value="zaključen">Zaključen</option>
-            </select>
-            <button className="rounded-[12px] bg-[#0A2C57] py-2.5 text-sm font-black text-white transition hover:bg-[#0d3570]">
-              Išči
-            </button>
-          </form>
-
-          {/* Cards */}
-          <div className="grid gap-4 xl:grid-cols-2">
-            {data.tournaments.map((tournament) => (
-              <article
-                key={tournament.id}
-                className="group rounded-[20px] border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#2BAF3A]/40 hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
-                      {tournament.sport}
-                    </p>
-                    <h3 className="mt-1.5 text-xl font-black leading-tight text-[#0A2C57]">
-                      {tournament.title}
-                    </h3>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-[#e8f8ea] px-2.5 py-1 text-[11px] font-bold text-[#228f2f]">
-                    {tournament.status}
-                  </span>
-                </div>
-
-                {tournament.description && (
-                  <p className="mt-2 text-sm leading-6 text-slate-500 line-clamp-2">
-                    {tournament.description}
-                  </p>
-                )}
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2 rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    <CalendarDays size={12} className="text-slate-400" />
-                    {formatDate(tournament.date)}
-                  </div>
-                  <div className="flex items-center gap-2 rounded-[10px] bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    <MapPin size={12} className="text-slate-400" />
-                    <span className="truncate">{tournament.location}</span>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-xs text-slate-400">Org: {tournament.organizer.fullName}</span>
-                  <div className="flex items-center gap-1 text-xs font-semibold text-slate-600">
-                    <Users size={12} />
-                    {tournament.registrations.length}/{tournament.maxTeams}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <Link
-                    href="/?modal=login"
-                    className="inline-flex items-center gap-1.5 rounded-[12px] bg-[#0A2C57] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0d3570]"
-                  >
-                    Prijava za podrobnosti <ArrowRight size={12} />
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+          ))}
+        </div>
       </div>
 
-      {/* ── Modal ── */}
-      {activeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-sm">
-          <div className="relative w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white shadow-2xl">
-            <Link
-              href="/"
-              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200"
-            >
-              ✕
-            </Link>
-
-            <div className="grid md:grid-cols-[0.9fr_1.1fr]">
-              {/* Left info panel */}
-              <div className="rounded-[28px] bg-[#0A2C57] p-7 text-white md:rounded-r-none">
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#8EF29A]">
-                  ŠZSŠ portal
-                </span>
-                <h2 className="mt-3 text-2xl font-black leading-tight">
-                  {activeModal === "login" ? "Prijava v sistem" : "Registracija novega računa"}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-white/60">
-                  {activeModal === "login"
-                    ? "Vstopi za upravljanje ekip, prijave na turnirje in pregled dogajanja tvoje šole."
-                    : "Izberi svojo šolo, naloži kartico in po admin odobritvi dostopaj do ekip in turnirjev."}
-                </p>
-                <div className="mt-6 space-y-2">
-                  {[
-                    "Javni pregled turnirjev",
-                    "Registracija po dejanski srednji šoli",
-                    "Ekipe in člani na enem mestu",
-                  ].map((item) => (
-                    <div key={item} className="flex items-center gap-2.5 rounded-[12px] bg-white/8 px-3.5 py-2.5 text-sm text-white/70">
-                      <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8EF29A]" />
-                      {item}
-                    </div>
-                  ))}
+      {/* Features */}
+      <section className="mx-auto max-w-6xl px-5 py-24">
+        <div className="mb-14 text-center">
+          <h2 className="text-3xl font-black md:text-4xl" style={{ fontFamily: "var(--font-heading)" }}>
+            Vse kar potrebuješ
+          </h2>
+          <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Od prijave do zmagoslavja – vse na enem mestu.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: Trophy, title: "Turnirji", desc: "Skupinski del, izločilni boji ali kombinirani format. Samoregistracija z unikatno QR povezavo.", color: "#2baf3a" },
+            { icon: Users, title: "Ekipe", desc: "Ustvari ekipo, dodaj sošolce in se prijavite skupaj na turnirje.", color: "#0a2c57", border: "rgba(10,44,87,0.8)" },
+            { icon: BarChart3, title: "Lestvice", desc: "Globalne lestvice po ekipah in šolah. Vedno veš kje stojite.", color: "#f59e0b" },
+            { icon: Zap, title: "Rezultati v živo", desc: "Sproti objavljeni rezultati in obvestila v realnem času.", color: "#ef4444" },
+          ].map((f) => {
+            const Icon = f.icon;
+            return (
+              <div key={f.title} className="card">
+                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${f.color}20` }}>
+                  <Icon size={18} style={{ color: f.color === "#0a2c57" ? "#4a90d9" : f.color }} />
                 </div>
+                <h3 className="font-black" style={{ fontFamily: "var(--font-heading)" }}>{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>{f.desc}</p>
               </div>
+            );
+          })}
+        </div>
+      </section>
 
-              {/* Right form */}
-              <div className="p-7">
-                {activeModal === "login" ? (
-                  <>
-                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">Prijava</span>
-                    <h3 className="mt-2 text-2xl font-black text-[#0A2C57]">Vstop v sistem</h3>
-                    <p className="mt-1.5 text-sm text-slate-500">
-                      Prijavi se. Registracija se najprej pregleda.
-                    </p>
+      {/* Pricing */}
+      <section className="px-5 py-24" style={{ borderTop: "1px solid var(--border)" }}>
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-black md:text-4xl" style={{ fontFamily: "var(--font-heading)" }}>
+              Preprost cenik
+            </h2>
+            <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Začni brezplačno. Nadgradi ko si pripravljen.
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-3">
 
-                    {params.registered && (
-                      <div className="mt-4 rounded-[12px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-                        Registracija je oddana. Po admin odobritvi se lahko prijaviš.
-                      </div>
-                    )}
-                    {params.loginError && (
-                      <div className="mt-4 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                        {params.loginError}
-                      </div>
-                    )}
+            {/* Free */}
+            <div className="card flex flex-col">
+              <div className="badge badge-gray mb-4 self-start">Brezplačno</div>
+              <div className="text-4xl font-black" style={{ fontFamily: "var(--font-heading)" }}>0€</div>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>Za vedno brezplačno</p>
+              <ul className="mt-6 space-y-3 text-sm flex-1" style={{ color: "var(--text-secondary)" }}>
+                {["Prijava na turnirje", "Ogled lestvic in rezultatov", "Ustvarjanje ekip", "Šolski profil"].map(item => (
+                  <li key={item} className="flex items-center gap-2"><span style={{ color: "#6ee77a" }}>✓</span> {item}</li>
+                ))}
+                <li className="flex items-center gap-2 opacity-30"><span>✗</span> Organizacija turnirjev</li>
+              </ul>
+              <Link href="/register" className="btn-ghost mt-8 w-full py-3 text-center">Začni brezplačno</Link>
+            </div>
 
-                    <form action={loginAction} className="mt-5 space-y-3.5">
-                      <input type="hidden" name="redirectTo" value="/" />
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-400">E-pošta</span>
-                        <input
-                          name="email"
-                          type="email"
-                          required
-                          className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
-                          placeholder="ime@sola.si"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-400">Geslo</span>
-                        <input
-                          name="password"
-                          type="password"
-                          required
-                          className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
-                          placeholder="••••••••"
-                        />
-                      </label>
-                      <button className="w-full rounded-[12px] bg-[#0A2C57] py-3 text-sm font-black text-white shadow-lg shadow-[#0A2C57]/20 transition hover:bg-[#0d3570]">
-                        Prijava
-                      </button>
-                    </form>
-
-                    <p className="mt-5 text-sm text-slate-500">
-                      Nimaš računa?{" "}
-                      <Link href="/?modal=register" className="font-black text-[#2BAF3A]">
-                        Registriraj se
-                      </Link>
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#2BAF3A]">Registracija</span>
-                    <h3 className="mt-2 text-2xl font-black text-[#0A2C57]">Ustvari račun</h3>
-                    <p className="mt-1.5 text-sm text-slate-500">
-                      Izberi šolo, naloži kartico in počakaj na admin odobritev.
-                    </p>
-
-                    {params.registerError && (
-                      <div className="mt-4 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                        {params.registerError}
-                      </div>
-                    )}
-
-                    <form action={registerAction} className="mt-5 space-y-3">
-                      <input type="hidden" name="redirectTo" value="/" />
-                      <input
-                        name="fullName"
-                        required
-                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
-                        placeholder="Ime in priimek"
-                      />
-                      <input
-                        name="email"
-                        type="email"
-                        required
-                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
-                        placeholder="E-pošta"
-                      />
-                      <input
-                        name="password"
-                        type="password"
-                        required
-                        minLength={6}
-                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"
-                        placeholder="Geslo (min. 6 znakov)"
-                      />
-                      <select
-                        name="schoolName"
-                        required
-                        defaultValue=""
-                        className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
-                      >
-                        <option value="" disabled>Izberi svojo šolo</option>
-                        {SCHOOL_OPTIONS.map((school) => (
-                          <option key={school} value={school}>{school}</option>
-                        ))}
-                      </select>
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-bold text-slate-500">Šolska kartica (slika)</span>
-                        <input
-                          name="schoolCard"
-                          type="file"
-                          accept="image/*"
-                          required
-                          className="w-full rounded-[12px] border border-dashed border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#0A2C57] file:px-3 file:py-1 file:text-xs file:font-bold file:text-white"
-                        />
-                      </label>
-                      <button className="w-full rounded-[12px] bg-[#2BAF3A] py-3 text-sm font-black text-white shadow-lg shadow-[#2BAF3A]/25 transition hover:bg-[#249933]">
-                        Oddaj registracijo
-                      </button>
-                    </form>
-
-                    <p className="mt-4 text-sm text-slate-500">
-                      Že imaš račun?{" "}
-                      <Link href="/?modal=login" className="font-black text-[#0A2C57]">
-                        Prijavi se
-                      </Link>
-                    </p>
-                  </>
-                )}
+            {/* Pro */}
+            <div className="relative flex flex-col rounded-[18px] p-5" style={{ background: "linear-gradient(135deg, rgba(43,175,58,0.18) 0%, rgba(43,175,58,0.06) 100%)", border: "1px solid rgba(43,175,58,0.4)" }}>
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="badge badge-green px-3 py-1">Priporočeno</span>
               </div>
+              <div className="badge badge-pro mb-4 self-start"><Star size={9} />Pro</div>
+              <div className="text-4xl font-black gradient-text" style={{ fontFamily: "var(--font-heading)" }}>5€</div>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>na mesec</p>
+              <ul className="mt-6 space-y-3 text-sm flex-1" style={{ color: "var(--text-secondary)" }}>
+                {["Vse iz brezplačnega", "Ustvarjanje turnirjev", "Samoregistracija QR", "Upravljanje tekem", "Obvestila sledilcem", "Napredna statistika"].map(item => (
+                  <li key={item} className="flex items-center gap-2"><span style={{ color: "#2baf3a" }}>✓</span> {item}</li>
+                ))}
+              </ul>
+              <Link href="/register" className="btn-primary mt-8 w-full py-3 text-center">Kupi Pro <ChevronRight size={14} /></Link>
+            </div>
+
+            {/* School */}
+            <div className="card flex flex-col" style={{ borderColor: "rgba(245,158,11,0.25)" }}>
+              <div className="badge badge-pro mb-4 self-start"><Shield size={9} />Šolska licenca</div>
+              <div className="text-4xl font-black gradient-text-gold" style={{ fontFamily: "var(--font-heading)" }}>49€</div>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>letno · do 50 dijakov</p>
+              <ul className="mt-6 space-y-3 text-sm flex-1" style={{ color: "var(--text-secondary)" }}>
+                {["Pro za celotno šolo", "Centralno upravljanje", "Prioritetna podpora", "Brez mesečnih plačil", "99€ = neomejeno dijakov"].map(item => (
+                  <li key={item} className="flex items-center gap-2"><span style={{ color: "#fbbf24" }}>✓</span> {item}</li>
+                ))}
+              </ul>
+              <Link href="/upgrade" className="btn-ghost mt-8 w-full py-3 text-center" style={{ borderColor: "rgba(245,158,11,0.3)", color: "#fbbf24" }}>
+                Kontaktiraj nas
+              </Link>
             </div>
           </div>
         </div>
-      )}
+      </section>
+
+      {/* CTA */}
+      <section className="px-5 py-24 text-center" style={{ borderTop: "1px solid var(--border)" }}>
+        <div className="mx-auto max-w-2xl">
+          {/* Logo accent */}
+          <div className="mb-6 flex justify-center">
+            <Image src="/szss-logo-transparent.png" alt="ŠZSŠ" width={120} height={48} className="h-12 w-auto opacity-70" />
+          </div>
+          <h2 className="text-3xl font-black md:text-4xl" style={{ fontFamily: "var(--font-heading)" }}>
+            Pripravljen na<br /><span className="gradient-text">prvo tekmo?</span>
+          </h2>
+          <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Registracija traja manj kot 2 minuti. Administrator potrdi tvoj račun in kmalu začneš tekmovati.
+          </p>
+          <Link href="/register" className="btn-primary mt-8 inline-flex px-10 py-3 text-base">
+            Registriraj se zdaj <ArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="px-5 py-8 text-center text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
+        <div className="flex justify-center mb-3">
+          <Image src="/szss-logo-transparent.png" alt="ŠZSŠ" width={80} height={32} className="h-8 w-auto opacity-30" />
+        </div>
+        © 2025 Športna zveza srednjih šol · Vse pravice pridržane
+      </footer>
     </div>
   );
 }

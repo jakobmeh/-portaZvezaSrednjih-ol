@@ -1,211 +1,229 @@
 import { notFound, redirect } from "next/navigation";
-import { CalendarDays, MapPin, Plus, Trophy } from "lucide-react";
+import { CalendarDays, MapPin, Plus, Trophy, CheckCircle, Lock } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import {
-  createMatchAction,
-  deleteMatchAction,
-  setMatchStatusAction,
-  updateMatchResultAction,
-} from "@/lib/actions";
+import { BracketView } from "@/components/bracket-view";
+import { FormSelect } from "@/components/form-select";
+import { LiveScoreInput } from "@/components/live-score-input";
+import { TournamentChatPopup } from "@/components/tournament-chat-popup";
+import { createMatchAction, deleteMatchAction, setMatchStatusAction, updateMatchResultAction, completeTournamentAction, generateMatchesAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { getTournamentDetails } from "@/lib/data";
-import {
-  formatDate,
-  getMatchStatusLabel,
-  getMatchStatusTone,
-  SPORTS,
-} from "@/lib/utils";
+import { formatDate, getMatchStatusLabel } from "@/lib/utils";
 import { MatchStatus } from "@prisma/client";
 
-export default async function MatchesPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function MatchesPage({ params }: { params: Promise<{ slug: string }> }) {
   const user = await requireUser();
   const { slug } = await params;
   const tournament = await getTournamentDetails(slug);
-
   if (!tournament) notFound();
   if (tournament.organizerId !== user.id) redirect(`/tournaments/${slug}`);
 
-  const confirmedTeams = tournament.registrations
-    .filter((r) => r.status === "CONFIRMED")
-    .map((r) => r.team);
-
+  const confirmedTeams = tournament.registrations.filter((r) => r.status === "CONFIRMED").map((r) => r.team);
   const upcoming = tournament.matches.filter((m) => m.status === "UPCOMING");
   const live = tournament.matches.filter((m) => m.status === "LIVE");
   const finished = tournament.matches.filter((m) => m.status === "FINISHED");
+  const allDone = tournament.matches.length > 0 && upcoming.length === 0 && live.length === 0;
+  const isCompleted = (tournament as any).isCompleted;
+  const hasBracket = tournament.matches.some((m) => m.round !== null);
+  const chatMessages = tournament.messages.map((message) => ({
+    id: message.id,
+    senderName: message.senderName,
+    content: message.content,
+    createdAt: message.createdAt.toISOString(),
+  }));
 
   return (
     <AppShell
       user={user}
       activePath="/tournaments"
       title="Urnik tekem"
-      description={`Upravljaj tekme za turnir ${tournament.title}`}
+      description={tournament.title}
       actions={
-        <a
-          href={`/t/${tournament.slug}`}
-          target="_blank"
-          className="rounded-2xl border border-[#2BAF3A]/40 bg-[#f0fdf4] px-4 py-2.5 text-sm font-semibold text-[#2BAF3A] transition hover:bg-[#dcfce7]"
-        >
-          Javna lestvica →
-        </a>
+        <div className="flex items-center gap-2">
+          <TournamentChatPopup
+            tournamentId={tournament.id}
+            redirectTo={`/tournaments/${slug}/matches`}
+            messages={chatMessages}
+          />
+          {isCompleted ? (
+            <span className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold" style={{ background: "rgba(43,175,58,0.1)", color: "#6ee77a", border: "1px solid rgba(43,175,58,0.3)" }}>
+              <Lock size={13} /> Zaključen
+            </span>
+          ) : allDone ? (
+            <form action={completeTournamentAction}>
+              <input type="hidden" name="tournamentId" value={tournament.id} />
+              <button className="flex items-center gap-1.5 btn-primary py-2 px-4 text-sm">
+                <CheckCircle size={13} /> Zaključi turnir
+              </button>
+            </form>
+          ) : null}
+        </div>
       }
     >
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
 
-        {/* Left – match list */}
+        {/* Tekme */}
         <div className="space-y-5">
+          {hasBracket && (
+            <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="font-black text-sm uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  <Trophy size={12} className="inline mr-1 text-amber-400" />
+                  Bracket
+                </h2>
+                <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                  {tournament.matches.filter((m) => m.round !== null && m.status !== "CANCELLED").length} tekem
+                </span>
+              </div>
+              <BracketView matches={tournament.matches} />
+            </div>
+          )}
 
-          {/* Live */}
           {live.length > 0 && (
-            <section>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-red-600">
+            <div>
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wider" style={{ color: "#f87171" }}>
                 <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
                 V živo ({live.length})
               </h2>
-              <div className="space-y-2.5">
-                {live.map((match) => (
-                  <MatchCard key={match.id} match={match} isOrganizer />
-                ))}
-              </div>
-            </section>
+              <div className="space-y-2">{live.map((m) => <MatchCard key={m.id} match={m} />)}</div>
+            </div>
           )}
-
-          {/* Upcoming */}
           {upcoming.length > 0 && (
-            <section>
-              <h2 className="mb-3 text-sm font-black uppercase tracking-wider text-slate-500">
-                Prihajajoče ({upcoming.length})
-              </h2>
-              <div className="space-y-2.5">
-                {upcoming.map((match) => (
-                  <MatchCard key={match.id} match={match} isOrganizer />
-                ))}
-              </div>
-            </section>
+            <div>
+              <h2 className="mb-3 text-sm font-black uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Prihajajoče ({upcoming.length})</h2>
+              <div className="space-y-2">{upcoming.map((m) => <MatchCard key={m.id} match={m} />)}</div>
+            </div>
           )}
-
-          {/* Finished */}
           {finished.length > 0 && (
-            <section>
-              <h2 className="mb-3 text-sm font-black uppercase tracking-wider text-slate-400">
-                Končane ({finished.length})
-              </h2>
-              <div className="space-y-2.5">
-                {finished.map((match) => (
-                  <MatchCard key={match.id} match={match} isOrganizer />
-                ))}
-              </div>
-            </section>
+            <div>
+              <h2 className="mb-3 text-sm font-black uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Končane ({finished.length})</h2>
+              <div className="space-y-2">{finished.map((m) => <MatchCard key={m.id} match={m} />)}</div>
+            </div>
           )}
-
           {tournament.matches.length === 0 && (
-            <div className="rounded-[22px] border border-dashed border-slate-200 bg-white p-10 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
-                <Trophy size={22} className="text-slate-400" />
-              </div>
-              <p className="mt-4 text-base font-black text-[#0A2C57]">Ni tekem</p>
-              <p className="mt-1 text-sm text-slate-400">Ustvari prvo tekmo z obrazcem na desni.</p>
+            <div className="rounded-xl py-16 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <Trophy size={28} className="mx-auto mb-3 opacity-20" />
+              <p className="font-semibold" style={{ color: "var(--text-muted)" }}>Ni tekem.</p>
+              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Ustvari prvo tekmo z obrazcem na desni.</p>
             </div>
           )}
         </div>
 
-        {/* Right – add match form */}
+        {/* Dodaj tekmo */}
         <div className="space-y-4">
-          <div className="rounded-[22px] border border-slate-200 bg-white p-6">
-            <div className="mb-5 flex items-center gap-2.5">
-              <div className="rounded-xl bg-[#2BAF3A]/10 p-2">
-                <Plus size={15} className="text-[#2BAF3A]" />
-              </div>
-              <h2 className="text-base font-black text-[#0A2C57]">Dodaj tekmo</h2>
-            </div>
 
+          {/* Auto-generiranje */}
+          {confirmedTeams.length >= 2 && tournament.matches.length === 0 && (
+            <div className="rounded-xl p-5" style={{ background: "rgba(43,175,58,0.08)", border: "1px solid rgba(43,175,58,0.35)" }}>
+              <p className="text-sm font-black mb-1" style={{ color: "#6ee77a" }}>Generiraj razpored</p>
+              <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                {tournament.format === "KNOCKOUT"
+                  ? `${confirmedTeams.length} ekip → naključni pari za 1. krog`
+                  : `${confirmedTeams.length} ekip → ${Math.ceil(confirmedTeams.length / 4)} skupina${Math.ceil(confirmedTeams.length / 4) === 1 ? "" : Math.ceil(confirmedTeams.length / 4) < 5 ? "e" : ""}, round-robin`}
+              </p>
+              <form action={generateMatchesAction}>
+                <input type="hidden" name="tournamentId" value={tournament.id} />
+                <button className="btn-primary w-full py-2.5 text-sm">⚡ Generiraj tekme</button>
+              </form>
+            </div>
+          )}
+
+          {confirmedTeams.length >= 2 && tournament.matches.length > 0 && !tournament.matches.some(m => m.status === "LIVE" || m.status === "FINISHED") && (
+            <form action={generateMatchesAction}>
+              <input type="hidden" name="tournamentId" value={tournament.id} />
+              <button className="w-full rounded-xl py-2 px-4 text-xs font-bold" style={{ background: "rgba(245,158,11,0.08)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.25)" }}>
+                ↺ Regeneriraj (izbriše obstoječe)
+              </button>
+            </form>
+          )}
+
+          <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Plus size={14} style={{ color: "#6ee77a" }} />
+              <h2 className="font-black text-sm">Dodaj tekmo</h2>
+            </div>
             {confirmedTeams.length < 2 ? (
-              <p className="rounded-[14px] bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="rounded-xl p-3 text-sm" style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>
                 Za dodajanje tekme potrebuješ vsaj 2 potrjeni ekipi.
               </p>
             ) : (
-              <form action={createMatchAction} className="space-y-4">
+              <form action={createMatchAction} className="space-y-3">
                 <input type="hidden" name="tournamentId" value={tournament.id} />
-
-                <label className="block">
-                  <span className="label-text">Domača ekipa</span>
-                  <select name="homeTeamId" required className="field">
-                    <option value="" disabled>Izberi…</option>
-                    {confirmedTeams.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="label-text">Gostujoča ekipa</span>
-                  <select name="awayTeamId" required className="field">
-                    <option value="" disabled>Izberi…</option>
-                    {confirmedTeams.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="label-text">Datum in ura</span>
-                  <input type="datetime-local" name="scheduledAt" className="field" />
-                </label>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="block">
-                    <span className="label-text">Igrišče / dvorana</span>
-                    <input name="court" className="field" placeholder="Igrišče 1" />
-                  </label>
-                  <label className="block">
-                    <span className="label-text">Krog</span>
-                    <input name="round" type="number" min="1" className="field" placeholder="1" />
-                  </label>
+                <div>
+                  <label className="label-text">Domača ekipa</label>
+                  <FormSelect
+                    name="homeTeamId"
+                    required
+                    placeholder="Izberi ekipo..."
+                    options={confirmedTeams.map((t) => ({ label: t.name, value: t.id }))}
+                  />
                 </div>
-
-                <label className="block">
-                  <span className="label-text">Skupina (neobvezno)</span>
+                <div>
+                  <label className="label-text">Gostujoča ekipa</label>
+                  <FormSelect
+                    name="awayTeamId"
+                    required
+                    placeholder="Izberi ekipo..."
+                    options={confirmedTeams.map((t) => ({ label: t.name, value: t.id }))}
+                  />
+                </div>
+                <div>
+                  <label className="label-text">Datum in ura</label>
+                  <input type="datetime-local" name="scheduledAt" className="field" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label-text">Igrišče</label>
+                    <input name="court" className="field" placeholder="Igrišče 1" />
+                  </div>
+                  <div>
+                    <label className="label-text">Krog</label>
+                    <input name="round" type="number" min="1" className="field" placeholder="1" />
+                  </div>
+                </div>
+                <div>
+                  <label className="label-text">Skupina</label>
                   <input name="group" className="field" placeholder="Skupina A" />
-                </label>
-
-                <button className="w-full rounded-[14px] bg-[#2BAF3A] py-3 text-sm font-black text-white shadow-md shadow-[#2BAF3A]/25 transition hover:bg-[#249933]">
-                  Dodaj tekmo
-                </button>
+                </div>
+                <button className="btn-primary w-full py-2.5">Dodaj tekmo</button>
               </form>
             )}
           </div>
 
-          <div className="rounded-[22px] bg-[#0A2C57] p-5 text-white">
-            <p className="text-xs font-black uppercase tracking-widest text-white/40">Postopek</p>
-            <div className="mt-3 space-y-2.5">
-              {[
-                "Dodaj tekme z določitvijo ekip in termina",
-                "Ko se tekma začne, jo označi kot »V živo«",
-                "Po koncu vnesi rezultat",
-                "Lestvica se samodejno posodobi",
-              ].map((s, i) => (
-                <div key={i} className="flex items-start gap-2.5 text-xs text-white/65">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/10 text-[9px] font-black">
-                    {i + 1}
-                  </span>
-                  {s}
-                </div>
-              ))}
-            </div>
+          <div className="rounded-xl p-4" style={{ background: "rgba(43,175,58,0.06)", border: "1px solid rgba(43,175,58,0.2)" }}>
+            <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>Postopek</p>
+            {["Dodaj tekme z ekipami in terminom", "Ko se tekma začne → označi kot V živo", "Po koncu vnesi rezultat in shrani", "Ko so vse tekme zaključene → klikni Zaključi turnir"].map((s, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-black" style={{ background: "rgba(43,175,58,0.25)", color: "#6ee77a" }}>{i + 1}</span>
+                {s}
+              </div>
+            ))}
           </div>
+
+          {!isCompleted && (
+            <div className="rounded-xl p-4" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
+              <p className="text-xs font-black mb-1" style={{ color: "#fbbf24" }}>⚠️ Lestvica še ne šteje</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Rezultati se prikažejo na globalni lestvici šele ko klikneš <strong style={{color:"var(--text-secondary)"}}>Zaključi turnir</strong>. To preprečuje zlorabo lestvice.
+              </p>
+            </div>
+          )}
+
+          {isCompleted && (
+            <div className="rounded-xl p-4" style={{ background: "rgba(43,175,58,0.06)", border: "1px solid rgba(43,175,58,0.25)" }}>
+              <p className="text-xs font-black mb-1" style={{ color: "#6ee77a" }}>✓ Rezultati so uradno potrjeni</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Turnir je zaključen. Rezultati se štejejo na globalni lestvici.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </AppShell>
   );
 }
 
-function MatchCard({
-  match,
-  isOrganizer,
-}: {
+function MatchCard({ match }: {
   match: {
     id: string;
     homeTeam: { id: string; name: string };
@@ -219,131 +237,100 @@ function MatchCard({
     round: number | null;
     group: string | null;
   };
-  isOrganizer: boolean;
 }) {
+  const isLive = match.status === "LIVE";
+  const isFinished = match.status === "FINISHED";
+
   return (
-    <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+    <div className="rounded-xl p-4" style={{ background: "var(--bg-card)", border: `1px solid ${isLive ? "rgba(239,68,68,0.3)" : "var(--border)"}` }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
           {match.round && <span>Krog {match.round}</span>}
           {match.group && <span>· {match.group}</span>}
-          {match.scheduledAt && (
-            <span className="flex items-center gap-1">
-              <CalendarDays size={11} />
-              {formatDate(match.scheduledAt)}
-            </span>
-          )}
-          {(match.court || match.location) && (
-            <span className="flex items-center gap-1">
-              <MapPin size={11} />
-              {match.court || match.location}
-            </span>
-          )}
+          {match.scheduledAt && <span className="flex items-center gap-1"><CalendarDays size={10} />{formatDate(match.scheduledAt)}</span>}
+          {(match.court || match.location) && <span className="flex items-center gap-1"><MapPin size={10} />{match.court ?? match.location}</span>}
         </div>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${getMatchStatusTone(match.status)}`}
-        >
+        <span className={`badge ${isLive ? "badge-live" : isFinished ? "badge-gray" : "badge-blue"}`}>
           {getMatchStatusLabel(match.status)}
         </span>
       </div>
 
-      {/* Teams & score */}
       <div className="flex items-center gap-3">
-        <p className="flex-1 text-right text-sm font-black text-[#0A2C57]">{match.homeTeam.name}</p>
-        <div className="flex items-center gap-1.5">
-          {match.status === "FINISHED" || match.status === "LIVE" ? (
+        <p className="flex-1 text-right text-sm font-bold">{match.homeTeam.name}</p>
+        <div className="flex items-center gap-1">
+          {isFinished || isLive ? (
             <>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0A2C57] text-lg font-black text-white">
-                {match.scoreHome ?? "–"}
-              </span>
-              <span className="text-xs font-black text-slate-400">:</span>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0A2C57] text-lg font-black text-white">
-                {match.scoreAway ?? "–"}
-              </span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl text-lg font-black" style={{ background: isLive ? "#ef4444" : "var(--bg-surface)", color: isLive ? "white" : "var(--text-primary)" }}>{match.scoreHome ?? "–"}</span>
+              <span className="text-xs font-black px-0.5" style={{ color: "var(--text-muted)" }}>:</span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl text-lg font-black" style={{ background: isLive ? "#ef4444" : "var(--bg-surface)", color: isLive ? "white" : "var(--text-primary)" }}>{match.scoreAway ?? "–"}</span>
             </>
           ) : (
-            <span className="px-3 text-sm font-bold text-slate-400">vs</span>
+            <span className="px-3 text-sm font-bold" style={{ color: "var(--text-muted)" }}>vs</span>
           )}
         </div>
-        <p className="flex-1 text-sm font-black text-[#0A2C57]">{match.awayTeam.name}</p>
+        <p className="flex-1 text-sm font-bold">{match.awayTeam.name}</p>
       </div>
 
       {/* Organizer controls */}
-      {isOrganizer && (
-        <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
-          {/* Result entry */}
-          {match.status !== "CANCELLED" && (
-            <form action={updateMatchResultAction} className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-end">
+      <div className="mt-4 space-y-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+
+        {/* LIVE → real-time +/- gumbi */}
+        {isLive && (
+          <LiveScoreInput
+            matchId={match.id}
+            initialHome={match.scoreHome ?? 0}
+            initialAway={match.scoreAway ?? 0}
+            homeTeamName={match.homeTeam.name}
+            awayTeamName={match.awayTeam.name}
+          />
+        )}
+
+        {/* Končana / prihajajoča → ročni vnos */}
+        {!isLive && match.status !== "CANCELLED" && (
+          <form action={updateMatchResultAction} className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
+            <input type="hidden" name="matchId" value={match.id} />
+            <div>
+              <label className="label-text">{match.homeTeam.name}</label>
+              <input name="scoreHome" type="number" min="0" defaultValue={match.scoreHome ?? ""} className="field text-center" placeholder="0" />
+            </div>
+            <span className="pb-2.5 text-sm font-black" style={{ color: "var(--text-muted)" }}>:</span>
+            <div>
+              <label className="label-text">{match.awayTeam.name}</label>
+              <input name="scoreAway" type="number" min="0" defaultValue={match.scoreAway ?? ""} className="field text-center" placeholder="0" />
+            </div>
+            <input type="hidden" name="status" value="FINISHED" />
+            <button className="btn-primary mb-0.5 py-2 px-3 text-xs">Shrani</button>
+          </form>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {match.status === "UPCOMING" && (
+            <form action={setMatchStatusAction}>
               <input type="hidden" name="matchId" value={match.id} />
-              <label className="block">
-                <span className="label-text">{match.homeTeam.name}</span>
-                <input
-                  name="scoreHome"
-                  type="number"
-                  min="0"
-                  defaultValue={match.scoreHome ?? ""}
-                  className="field text-center"
-                  placeholder="0"
-                />
-              </label>
-              <span className="pb-2.5 text-sm font-black text-slate-400">:</span>
-              <label className="block">
-                <span className="label-text">{match.awayTeam.name}</span>
-                <input
-                  name="scoreAway"
-                  type="number"
-                  min="0"
-                  defaultValue={match.scoreAway ?? ""}
-                  className="field text-center"
-                  placeholder="0"
-                />
-              </label>
-              <button className="mb-0.5 rounded-[10px] bg-[#2BAF3A] px-3 py-2.5 text-xs font-black text-white transition hover:bg-[#249933]">
-                Shrani
-              </button>
-              <input type="hidden" name="status" value="FINISHED" />
+              <input type="hidden" name="status" value="LIVE" />
+              <button className="badge badge-live cursor-pointer py-1.5 px-3 text-xs font-bold">▶ Začni tekmo</button>
             </form>
           )}
-
-          {/* Status controls */}
-          <div className="flex flex-wrap gap-2">
-            {match.status === "UPCOMING" && (
-              <form action={setMatchStatusAction}>
-                <input type="hidden" name="matchId" value={match.id} />
-                <input type="hidden" name="status" value="LIVE" />
-                <button className="rounded-[10px] bg-red-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-red-600">
-                  Začni tekmo
-                </button>
-              </form>
-            )}
-            {match.status === "LIVE" && (
-              <form action={setMatchStatusAction}>
-                <input type="hidden" name="matchId" value={match.id} />
-                <input type="hidden" name="status" value="FINISHED" />
-                <button className="rounded-[10px] bg-slate-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700">
-                  Zaključi brez rezultata
-                </button>
-              </form>
-            )}
-            {match.status !== "CANCELLED" && match.status !== "FINISHED" && (
-              <form action={setMatchStatusAction}>
-                <input type="hidden" name="matchId" value={match.id} />
-                <input type="hidden" name="status" value="CANCELLED" />
-                <button className="rounded-[10px] bg-orange-100 px-3 py-1.5 text-xs font-bold text-orange-700 transition hover:bg-orange-200">
-                  Odpovej
-                </button>
-              </form>
-            )}
-            <form action={deleteMatchAction}>
+          {match.status === "LIVE" && (
+            <form action={setMatchStatusAction}>
               <input type="hidden" name="matchId" value={match.id} />
-              <button className="rounded-[10px] bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500 transition hover:bg-rose-100 hover:text-rose-600">
-                Izbriši
-              </button>
+              <input type="hidden" name="status" value="FINISHED" />
+              <button className="badge badge-gray cursor-pointer py-1.5 px-3 text-xs font-bold">⏹ Zaključi</button>
             </form>
-          </div>
+          )}
+          {match.status !== "CANCELLED" && match.status !== "FINISHED" && (
+            <form action={setMatchStatusAction}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <input type="hidden" name="status" value="CANCELLED" />
+              <button className="badge badge-gray cursor-pointer py-1.5 px-3 text-xs font-bold">✕ Odpovej</button>
+            </form>
+          )}
+          <form action={deleteMatchAction}>
+            <input type="hidden" name="matchId" value={match.id} />
+            <button className="badge badge-red cursor-pointer py-1.5 px-3 text-xs font-bold">Izbriši</button>
+          </form>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -186,6 +186,7 @@ type FinishedMatch = {
   scoreHome: number | null;
   scoreAway: number | null;
   status: MatchStatus;
+  round?: number | null;
   group?: string | null;
 };
 
@@ -252,6 +253,10 @@ export function calculateStandings(
     if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
     return b.goalsFor - a.goalsFor;
   });
+}
+
+export function calculateKnockoutStandings(matches: FinishedMatch[]): StandingRow[] {
+  return calculateStandings(matches);
 }
 
 export function isProUser(user: { role: UserRole; isPro: boolean; proUntil: Date | null }) {

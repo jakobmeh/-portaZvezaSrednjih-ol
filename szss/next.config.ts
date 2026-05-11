@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "5mb",
     },
   },
+  // Stripe webhook potrebuje raw body
+  serverExternalPackages: ["stripe"],
 };
 
 export default nextConfig;

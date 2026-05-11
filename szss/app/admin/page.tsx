@@ -1,159 +1,245 @@
-import { Check, ShieldCheck, Trophy, UserCheck, Users, X } from "lucide-react";
+import Link from "next/link";
+import { Shield, Trophy, Users, UserX, Star } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { approveUserAction, rejectUserAction } from "@/lib/actions";
+import { rejectUserAction, approveUserAction, activateSchoolLicenseAction, grantProAction, revokeProAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/auth";
-import { getAdminData } from "@/lib/data";
-import { formatCompactDate, getApprovalLabel, getRoleLabel, getTournamentStatus } from "@/lib/utils";
+import { getAdminData, getAdminLicenses } from "@/lib/data";
+import { formatCompactDate, getApprovalLabel, getTournamentStatus, isProUser } from "@/lib/utils";
+import { SCHOOL_OPTIONS } from "@/lib/schools";
+import { SchoolSelect } from "@/components/school-select";
 
 export default async function AdminPage() {
   const user = await requireAdmin();
-  const data = await getAdminData();
+  const [data, licenses] = await Promise.all([getAdminData(), getAdminLicenses()]);
+
+  // Group users by school
+  const bySchool = new Map<string, typeof data.users>();
+  for (const u of data.users) {
+    if (!bySchool.has(u.schoolName)) bySchool.set(u.schoolName, []);
+    bySchool.get(u.schoolName)!.push(u);
+  }
 
   return (
-    <AppShell
-      user={user}
-      activePath="/admin"
-      title="Admin panel"
-      description="Odobritev registracij, pregled turnirjev in upravljanje uporabnikov."
-    >
-      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+    <AppShell user={user} activePath="/admin" title="Admin panel" description="Upravljanje uporabnikov in šolskih licenc.">
+      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
 
-        {/* Pending registrations */}
-        <section className="rounded-[22px] border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-2.5 mb-5">
-            <div className="rounded-xl bg-amber-100 p-2.5">
-              <UserCheck size={17} className="text-amber-600" />
-            </div>
-            <div>
-              <h2 className="text-base font-black text-[#0A2C57]">Registracije v čakanju</h2>
-              <p className="text-xs text-slate-400">
-                {data.pendingUsers.length} {data.pendingUsers.length === 1 ? "zahtevek" : "zahtevkov"}
-              </p>
-            </div>
+        {/* Leva stran - Uporabniki */}
+        <div className="space-y-6">
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Vsi uporabniki", value: data.users.length, icon: Users, color: "#2baf3a" },
+              { label: "Turnirji", value: data.tournaments.length, icon: Trophy, color: "#f59e0b" },
+              { label: "Aktivne licence", value: licenses.length, icon: Shield, color: "#06b6d4" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-2xl p-4" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+                <p className="text-3xl font-black" style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)" }}>{s.value}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="space-y-4">
-            {data.pendingUsers.length === 0 ? (
-              <div className="rounded-[16px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-                <ShieldCheck size={28} className="mx-auto text-[#2BAF3A]/50" />
-                <p className="mt-2 text-sm font-bold text-slate-400">Ni registracij v čakanju</p>
-              </div>
-            ) : (
-              data.pendingUsers.map((pending) => (
-                <div key={pending.id} className="rounded-[18px] border border-slate-200 p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0A2C57] text-xs font-black text-white">
-                        {pending.fullName.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-black text-[#0A2C57]">{pending.fullName}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{pending.email}</p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600">
-                            {pending.schoolName}
-                          </span>
-                          <span className="rounded-full bg-[#0A2C57]/8 px-2.5 py-0.5 text-[11px] font-bold text-[#0A2C57]">
-                            {getRoleLabel(pending.role)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {pending.schoolCardImage && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={pending.schoolCardImage}
-                        alt={`Šolska kartica ${pending.fullName}`}
-                        className="h-24 w-40 rounded-[14px] object-cover ring-1 ring-slate-200"
-                      />
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex gap-2.5 border-t border-slate-100 pt-4">
-                    <form action={approveUserAction}>
-                      <input type="hidden" name="userId" value={pending.id} />
-                      <button className="flex items-center gap-1.5 rounded-[12px] bg-[#2BAF3A] px-4 py-2 text-xs font-black text-white shadow-md shadow-[#2BAF3A]/20 transition hover:bg-[#249933]">
-                        <Check size={13} />
-                        Odobri
-                      </button>
-                    </form>
-                    <form action={rejectUserAction}>
-                      <input type="hidden" name="userId" value={pending.id} />
-                      <button className="flex items-center gap-1.5 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black text-rose-600 transition hover:bg-rose-100">
-                        <X size={13} />
-                        Zavrni
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Right column */}
-        <div className="space-y-5">
-
-          {/* Tournaments */}
-          <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="rounded-xl bg-[#2BAF3A]/10 p-2">
-                <Trophy size={15} className="text-[#2BAF3A]" />
-              </div>
-              <h2 className="text-base font-black text-[#0A2C57]">Objavljeni turnirji</h2>
-            </div>
-            <div className="space-y-2">
-              {data.tournaments.length === 0 ? (
-                <p className="text-sm text-slate-400">Ni objavljenih turnirjev.</p>
-              ) : (
-                data.tournaments.map((tournament) => {
-                  const status = getTournamentStatus({
-                    date: tournament.date,
-                    maxTeams: tournament.maxTeams,
-                    registeredTeams: tournament.registrations.length,
-                  });
-                  return (
-                    <div key={tournament.id} className="flex items-center justify-between rounded-[12px] bg-slate-50 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-bold text-[#0A2C57]">{tournament.title}</p>
-                        <p className="text-xs text-slate-400">{tournament.organizer.fullName}</p>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-500">{status}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
-
-          {/* Recent users */}
-          <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="rounded-xl bg-[#0A2C57]/8 p-2">
-                <Users size={15} className="text-[#0A2C57]" />
-              </div>
-              <h2 className="text-base font-black text-[#0A2C57]">Zadnji uporabniki</h2>
-            </div>
-            <div className="space-y-2">
-              {data.users.map((account) => {
-                const approved = account.approvalStatus === "APPROVED";
+          {/* Uporabniki po šolah */}
+          <section>
+            <h2 className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
+              Uporabniki ({data.users.length})
+            </h2>
+            <div className="overflow-hidden rounded-2xl" style={{ border: "1px solid var(--border)" }}>
+              {data.users.map((acc, i) => {
+                const pro = acc.isPro && (!acc.proUntil || acc.proUntil > new Date());
+                const blocked = acc.approvalStatus === "REJECTED";
                 return (
-                  <div key={account.id} className="flex items-center justify-between rounded-[12px] bg-slate-50 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-bold text-[#0A2C57]">{account.fullName}</p>
-                      <p className="text-xs text-slate-400">
-                        {getRoleLabel(account.role)} · {formatCompactDate(account.createdAt)}
-                      </p>
+                  <div
+                    key={acc.id}
+                    className="flex items-center gap-3 px-5 py-3.5"
+                    style={{
+                      background: blocked ? "rgba(239,68,68,0.05)" : "var(--bg-surface)",
+                      borderTop: i > 0 ? "1px solid var(--border)" : "none",
+                      opacity: blocked ? 0.7 : 1,
+                    }}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black" style={{ background: "rgba(43,175,58,0.15)", color: "#6ee77a" }}>
+                      {acc.fullName.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase()}
                     </div>
-                    <span className={`text-[11px] font-black ${approved ? "text-[#2BAF3A]" : "text-amber-600"}`}>
-                      {getApprovalLabel(account.approvalStatus)}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{acc.fullName}</p>
+                      <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{acc.email} · {acc.schoolName}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {pro && (
+                        <span className="badge badge-pro"><Star size={9} />Pro</span>
+                      )}
+                      {acc.role === "ADMIN" && (
+                        <span className="badge badge-red">Admin</span>
+                      )}
+                      {blocked && (
+                        <span className="badge badge-red">Blokiran</span>
+                      )}
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {formatCompactDate(acc.createdAt)}
+                      </span>
+                      {acc.role !== "ADMIN" && (
+                        <div className="flex items-center gap-1.5">
+                          {/* Pro gumb */}
+                          {pro ? (
+                            <form action={revokeProAction}>
+                              <input type="hidden" name="userId" value={acc.id} />
+                              <button className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24", border: "none", cursor: "pointer" }}>
+                                - Pro
+                              </button>
+                            </form>
+                          ) : (
+                            <form action={grantProAction}>
+                              <input type="hidden" name="userId" value={acc.id} />
+                              <button className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ background: "rgba(43,175,58,0.1)", color: "#6ee77a", border: "none", cursor: "pointer" }}>
+                                + Pro
+                              </button>
+                            </form>
+                          )}
+                          {/* Blokiraj */}
+                          {blocked ? (
+                            <form action={approveUserAction}>
+                              <input type="hidden" name="userId" value={acc.id} />
+                              <button className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-muted)", border: "none", cursor: "pointer" }}>
+                                Odblokiraj
+                              </button>
+                            </form>
+                          ) : (
+                            <form action={rejectUserAction}>
+                              <input type="hidden" name="userId" value={acc.id} />
+                              <button className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ background: "rgba(239,68,68,0.08)", color: "#f87171", border: "none", cursor: "pointer" }}>
+                                <UserX size={11} className="inline" />
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
           </section>
+
+          {/* Turnirji */}
+          <section>
+            <h2 className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
+              Turnirji ({data.tournaments.length})
+            </h2>
+            <div className="overflow-hidden rounded-2xl" style={{ border: "1px solid var(--border)" }}>
+              {data.tournaments.length === 0 ? (
+                <div className="py-8 text-center text-sm" style={{ background: "var(--bg-surface)", color: "var(--text-muted)" }}>Ni turnirjev.</div>
+              ) : data.tournaments.map((t, i) => {
+                const status = getTournamentStatus({ date: t.date, maxTeams: t.maxTeams, registeredTeams: t.registrations.length });
+                return (
+                  <Link
+                    key={t.id}
+                    href={`/tournaments/${t.slug}`}
+                    className="flex items-center gap-4 px-5 py-3.5 transition-colors"
+                    style={{ background: "var(--bg-surface)", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{t.title}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t.sport} · {t.organizer.fullName}</p>
+                    </div>
+                    <span className={`badge ${status === "Odprt" ? "badge-green" : status === "Poln" ? "badge-red" : "badge-gray"}`}>{status}</span>
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.registrations.length}/{t.maxTeams}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        {/* Desna stran - Licence */}
+        <div>
+          <h2 className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
+            <Shield size={11} className="inline mr-1.5" style={{ color: "#f59e0b" }} />
+            Šolske licence
+          </h2>
+
+          {/* Aktiviraj */}
+          <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface)", border: "1px solid rgba(245,158,11,0.25)" }}>
+            <p className="text-sm font-bold mb-1">Aktiviraj šolski paket</p>
+            <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+              Generira unikatno kodo, ki jo šola pošlje dijakom. Dijak jo vnese pri registraciji → dobi Pro.
+            </p>
+            <form action={activateSchoolLicenseAction} className="space-y-3">
+              <div>
+                <label className="label-text">Šola</label>
+                <SchoolSelect schools={SCHOOL_OPTIONS} />
+              </div>
+              <div>
+                <label className="label-text">Plan</label>
+                <select name="plan" className="field" defaultValue="STANDARD">
+                  <option value="STANDARD">Standard – do 50 dijakov (49€/leto)</option>
+                  <option value="UNLIMITED">Unlimited – neomejeno (99€/leto)</option>
+                </select>
+              </div>
+              <button className="btn-primary w-full py-2.5 text-sm" style={{ background: "#f59e0b" }}>
+                Aktiviraj &amp; generiraj kodo
+              </button>
+            </form>
+          </div>
+
+          {/* Aktivne licence */}
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
+              Aktivne licence ({licenses.length})
+            </p>
+            {licenses.length === 0 ? (
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Ni aktivnih licenc.</p>
+            ) : (
+              <div className="overflow-hidden rounded-2xl" style={{ border: "1px solid rgba(245,158,11,0.2)" }}>
+                {licenses.map((lic: any, i: number) => {
+                  const expired = lic.expiresAt && new Date(lic.expiresAt) < new Date();
+                  return (
+                    <div
+                      key={lic.id}
+                      className="px-5 py-4"
+                      style={{
+                        background: "var(--bg-surface)",
+                        borderTop: i > 0 ? "1px solid var(--border)" : "none",
+                        opacity: expired ? 0.5 : 1,
+                      }}
+                    >
+                      <p className="font-semibold text-sm">{lic.schoolName}</p>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className="badge badge-pro">{lic.plan}</span>
+                        {lic.expiresAt && (
+                          <span className="text-xs" style={{ color: expired ? "#f87171" : "var(--text-muted)" }}>
+                            {expired ? "Potekla" : "do"} {new Date(lic.expiresAt).toLocaleDateString("sl-SI")}
+                          </span>
+                        )}
+                      </div>
+                      {lic.inviteToken && (
+                        <div className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "rgba(43,175,58,0.08)", border: "1px solid rgba(43,175,58,0.2)" }}>
+                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>Koda:</span>
+                          <span className="font-black text-sm tracking-widest" style={{ color: "#6ee77a", fontFamily: "monospace" }}>
+                            {lic.inviteToken}
+                          </span>
+                          <span className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>→ pošlji dijakom</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Pojasnilo */}
+          <div className="mt-5 rounded-2xl p-4" style={{ background: "rgba(43,175,58,0.05)", border: "1px solid rgba(43,175,58,0.15)" }}>
+            <p className="text-xs font-bold mb-2" style={{ color: "#6ee77a" }}>Kako deluje koda?</p>
+            <ul className="space-y-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              <li>1. Aktiviraš licenco → sistem generira 8-znakovno kodo</li>
+              <li>2. Kodo pošlješ šoli (npr. <span style={{color:"var(--text-secondary)"}}>XKQM7R2P</span>)</li>
+              <li>3. Dijak pri registraciji vnese kodo + izbere pravo šolo</li>
+              <li>4. Napačna šola ali napačna koda → napaka, brez Pro</li>
+              <li>5. Brez kode → brezplačen račun (admin lahko + Pro ročno)</li>
+            </ul>
+          </div>
         </div>
       </div>
     </AppShell>

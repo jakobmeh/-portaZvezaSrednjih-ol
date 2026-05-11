@@ -6,6 +6,16 @@ datasource db {
   provider = "postgresql"
 }
 
+model SchoolLicense {
+  id          String    @id @default(cuid())
+  schoolName  String    @unique
+  plan        String    @default("STANDARD")
+  inviteToken String?   @unique
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 enum UserRole {
   ADMIN
   PARTICIPANT
@@ -44,8 +54,10 @@ model User {
   role             UserRole
   approvalStatus   ApprovalStatus @default(PENDING)
   schoolCardImage  String?
-  isPro            Boolean        @default(false)
-  proUntil         DateTime?
+  isPro                Boolean        @default(false)
+  proUntil             DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   organizedEvents  Tournament[]   @relation("TournamentOrganizer")
@@ -80,6 +92,7 @@ model Tournament {
   selfRegistrationEnabled Boolean                  @default(false)
   selfRegistrationToken   String?                  @unique
   organizerId             String
+  isCompleted             Boolean                  @default(false)
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   organizer               User                     @relation("TournamentOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)

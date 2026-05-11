@@ -27,9 +27,8 @@ function redirectWithMessage(pathname: string, key: string, message: string): ne
   redirect(`${basePath}?${params.toString()}`);
 }
 
-function authTarget(formData: FormData, modal: "login" | "register") {
-  const redirectTo = getString(formData, "redirectTo") || "/";
-  return redirectTo === "/" ? `/?modal=${modal}` : `/${modal}`;
+function authTarget(_formData: FormData, modal: "login" | "register") {
+  return `/${modal}`;
 }
 
 async function saveSchoolCardLocally(file: File) {
@@ -89,19 +88,11 @@ export async function loginAction(formData: FormData) {
     redirectWithMessage(target, "loginError", "Napačno geslo.");
   }
 
-  if (user.approvalStatus === ApprovalStatus.PENDING) {
-    redirectWithMessage(
-      target,
-      "loginError",
-      "Tvoj račun še ni potrjen. Počakaj na odobritev administratorja.",
-    );
-  }
-
   if (user.approvalStatus === ApprovalStatus.REJECTED) {
     redirectWithMessage(
       target,
       "loginError",
-      "Tvoja registracija je bila zavrnjena. Za pomoč kontaktiraj administratorja.",
+      "Tvoj račun je bil onemogočen. Kontaktiraj administratorja.",
     );
   }
 
@@ -115,75 +106,92 @@ export async function registerAction(formData: FormData) {
   const email = getString(formData, "email").toLowerCase();
   const password = getString(formData, "password");
   const schoolName = getString(formData, "schoolName");
-  const schoolCard = formData.get("schoolCard");
+  const inviteCode = getString(formData, "inviteCode").toUpperCase().trim();
 
   if (!fullName || !email || !password || !schoolName) {
     redirectWithMessage(target, "registerError", "Izpolni vsa obvezna polja.");
   }
 
   if (!isSchoolOption(schoolName)) {
-    redirectWithMessage(target, "registerError", "Izberi veljavno srednjo šolo s seznama.");
+    redirectWithMessage(target, "registerError", "Izberi veljavno šolo s seznama.");
   }
 
-  if (!(schoolCard instanceof File)) {
-    redirectWithMessage(target, "registerError", "Naloži sliko šolske kartice.");
+  if (password.length < 6) {
+    redirectWithMessage(target, "registerError", "Geslo mora biti dolgo vsaj 6 znakov.");
   }
 
-  validateSchoolCard(schoolCard, target);
-
-  const existing = await prisma.user.findUnique({
-    where: { email },
-  });
-
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    redirectWithMessage(target, "registerError", "Ta e-poštni naslov je že uporabljen.");
-  }
-
-  let schoolCardImage: string | null = null;
-  try {
-    schoolCardImage = await saveSchoolCard(schoolCard);
-  } catch {
-    // redirect must be called outside try/catch (Next.js docs)
-  }
-
-  if (!schoolCardImage) {
-    redirectWithMessage(
-      target,
-      "registerError",
-      "Nalagalnik kartic trenutno ni na voljo. Poskusi znova čez nekaj trenutkov.",
-    );
+    redirectWithMessage(target, "registerError", "Ta e-poštni naslov je že zaseden.");
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await prisma.user.create({
+  // Preveri invite kodo - koda mora biti veljavna IN se ujemati s šolo ki jo je izbral
+  let isPro = false;
+  let proUntil: Date | null = null;
+  let inviteValid = false;
+
+  if (inviteCode) {
+    const license = await (prisma.schoolLicense as any).findUnique({
+      where: { inviteToken: inviteCode },
+    });
+
+    if (!license) {
+      redirectWithMessage(target, "registerError", "Napačna šolska koda.");
+    }
+
+    if (license.schoolName !== schoolName) {
+      redirectWithMessage(
+        target,
+        "registerError",
+        `Ta koda je za šolo "${license.schoolName}". Izberi pravilno šolo ali popravi kodo.`
+      );
+    }
+
+    const expired = license.expiresAt && license.expiresAt < new Date();
+    if (expired) {
+      redirectWithMessage(target, "registerError", "Šolska koda je potekla. Kontaktiraj administratorja.");
+    }
+
+    isPro = true;
+    proUntil = license.expiresAt;
+    inviteValid = true;
+  }
+
+  const newUser = await prisma.user.create({
     data: {
       fullName,
       email,
       passwordHash,
       schoolName,
-      schoolCardImage,
       role: UserRole.PARTICIPANT,
-      approvalStatus: ApprovalStatus.PENDING,
+      approvalStatus: ApprovalStatus.APPROVED,
+      isPro,
+      proUntil,
     },
   });
 
+  // Obvesti admina
   const admins = await prisma.user.findMany({
     where: { role: UserRole.ADMIN },
     select: { id: true },
   });
-
   if (admins.length > 0) {
+    const content = inviteValid
+      ? `${fullName} (${schoolName}) se je registriral s šolsko kodo – dobil Pro.`
+      : `${fullName} (${schoolName}) se je registriral brez kode – brezplačen račun.`;
     await prisma.notification.createMany({
-      data: admins.map((admin) => ({
-        userId: admin.id,
-        title: "Nova registracija čaka na odobritev",
-        content: `${fullName} je oddal registracijo za šolo ${schoolName}.`,
+      data: admins.map((a) => ({
+        userId: a.id,
+        title: "Nov uporabnik",
+        content,
       })),
     });
   }
 
-  redirect("/?modal=login&registered=1");
+  await createSession(newUser.id);
+  redirect("/dashboard");
 }
 
 export async function logoutAction() {
@@ -469,6 +477,7 @@ export async function createMessageAction(formData: FormData) {
   const user = await requireUser();
   const tournamentId = getString(formData, "tournamentId");
   const content = getString(formData, "content");
+  const redirectTo = getString(formData, "redirectTo");
 
   if (!content) {
     redirect("/tournaments");
@@ -476,6 +485,9 @@ export async function createMessageAction(formData: FormData) {
 
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
+    include: {
+      registrations: { select: { userId: true } },
+    },
   });
 
   if (!tournament) {
@@ -491,8 +503,53 @@ export async function createMessageAction(formData: FormData) {
     },
   });
 
+  const notifyUserIds = new Set<string>([
+    tournament.organizerId,
+    ...tournament.registrations.map((registration) => registration.userId),
+  ]);
+  notifyUserIds.delete(user.id);
+
+  if (notifyUserIds.size > 0) {
+    await prisma.notification.createMany({
+      data: [...notifyUserIds].map((userId) => ({
+        userId,
+        title: `Novo sporočilo: ${tournament.title}`,
+        content: `${user.fullName}: ${content.slice(0, 120)}`,
+      })),
+    });
+  }
+
   revalidatePath(`/tournaments/${tournament.slug}`);
-  redirect(`/tournaments/${tournament.slug}`);
+  revalidatePath(`/tournaments/${tournament.slug}/matches`);
+
+  const safeRedirect = redirectTo.startsWith(`/tournaments/${tournament.slug}`)
+    ? redirectTo
+    : `/tournaments/${tournament.slug}`;
+  redirect(safeRedirect);
+}
+
+// ── Live score update (no redirect, za real-time) ─────────────
+
+export async function liveScoreAction(formData: FormData) {
+  const user = await requireUser();
+  const matchId = getString(formData, "matchId");
+  const scoreHome = Number(getString(formData, "scoreHome"));
+  const scoreAway = Number(getString(formData, "scoreAway"));
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: true },
+  });
+
+  if (!match || match.tournament.organizerId !== user.id) return;
+  if (match.status !== "LIVE") return;
+
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { scoreHome, scoreAway },
+  });
+
+  revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
 }
 
 // ── Match Management ────────────────────────────────────────
@@ -535,7 +592,6 @@ export async function createMatchAction(formData: FormData) {
 
   revalidatePath(`/tournaments/${tournament.slug}`);
   revalidatePath(`/tournaments/${tournament.slug}/matches`);
-  revalidatePath(`/t/${tournament.slug}`);
   redirect(`/tournaments/${tournament.slug}/matches`);
 }
 
@@ -601,7 +657,6 @@ export async function updateMatchResultAction(formData: FormData) {
 
   revalidatePath(`/tournaments/${match.tournament.slug}`);
   revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
-  revalidatePath(`/t/${match.tournament.slug}`);
   redirect(`/tournaments/${match.tournament.slug}/matches`);
 }
 
@@ -644,8 +699,83 @@ export async function setMatchStatusAction(formData: FormData) {
 
   revalidatePath(`/tournaments/${match.tournament.slug}`);
   revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
-  revalidatePath(`/t/${match.tournament.slug}`);
   redirect(`/tournaments/${match.tournament.slug}/matches`);
+}
+
+export async function generateMatchesAction(formData: FormData) {
+  const user = await requireUser();
+  const tournamentId = getString(formData, "tournamentId");
+
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: {
+      registrations: {
+        where: { status: "CONFIRMED" },
+        include: { team: true },
+      },
+      matches: true,
+    },
+  });
+
+  if (!tournament || tournament.organizerId !== user.id) {
+    redirect("/tournaments");
+  }
+
+  const teams = tournament.registrations.map((r) => r.team);
+  if (teams.length < 2) {
+    redirectWithMessage(`/tournaments/${tournament.slug}/matches`, "error", "Potrebuješ vsaj 2 potrjeni ekipi.");
+  }
+
+  const hasActiveMatches = tournament.matches.some(
+    (m) => m.status === "LIVE" || m.status === "FINISHED",
+  );
+  if (hasActiveMatches) {
+    redirectWithMessage(`/tournaments/${tournament.slug}/matches`, "error", "Ne moreš regenerirati — obstajajo že aktivne ali zaključene tekme.");
+  }
+
+  await prisma.match.deleteMany({ where: { tournamentId } });
+
+  // Naključno premeša ekipe
+  const shuffled = [...teams].sort(() => Math.random() - 0.5);
+  const matchData: { tournamentId: string; homeTeamId: string; awayTeamId: string; round: number | null; group: string | null }[] = [];
+
+  if (tournament.format === "KNOCKOUT") {
+    for (let i = 0; i + 1 < shuffled.length; i += 2) {
+      matchData.push({
+        tournamentId,
+        homeTeamId: shuffled[i].id,
+        awayTeamId: shuffled[i + 1].id,
+        round: 1,
+        group: null,
+      });
+    }
+  } else {
+    // GROUP_STAGE ali COMBINED: razdeli v skupine po 4
+    const groupSize = Math.ceil(shuffled.length / Math.max(1, Math.ceil(shuffled.length / 4)));
+    const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let groupIdx = 0;
+    for (let start = 0; start < shuffled.length; start += groupSize) {
+      const groupTeams = shuffled.slice(start, start + groupSize);
+      const label = `Skupina ${labels[groupIdx++]}`;
+      for (let i = 0; i < groupTeams.length; i++) {
+        for (let j = i + 1; j < groupTeams.length; j++) {
+          matchData.push({
+            tournamentId,
+            homeTeamId: groupTeams[i].id,
+            awayTeamId: groupTeams[j].id,
+            round: null,
+            group: label,
+          });
+        }
+      }
+    }
+  }
+
+  await prisma.match.createMany({ data: matchData });
+
+  revalidatePath(`/tournaments/${tournament.slug}`);
+  revalidatePath(`/tournaments/${tournament.slug}/matches`);
+  redirect(`/tournaments/${tournament.slug}/matches`);
 }
 
 export async function deleteMatchAction(formData: FormData) {
@@ -665,7 +795,6 @@ export async function deleteMatchAction(formData: FormData) {
 
   revalidatePath(`/tournaments/${match.tournament.slug}`);
   revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
-  revalidatePath(`/t/${match.tournament.slug}`);
   redirect(`/tournaments/${match.tournament.slug}/matches`);
 }
 
@@ -692,6 +821,58 @@ export async function followTournamentAction(formData: FormData) {
   redirect(tournament ? `/tournaments/${tournament.slug}` : "/dashboard");
 }
 
+// ── Zaključi turnir ────────────────────────────────────────────
+
+export async function completeTournamentAction(formData: FormData) {
+  const user = await requireUser();
+  const tournamentId = getString(formData, "tournamentId");
+
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: { matches: true },
+  });
+
+  if (!tournament || tournament.organizerId !== user.id) {
+    redirect("/tournaments");
+  }
+
+  const unfinished = tournament.matches.filter(
+    (m) => m.status === "UPCOMING" || m.status === "LIVE",
+  );
+
+  if (unfinished.length > 0) {
+    redirectWithMessage(
+      `/tournaments/${tournament.slug}/matches`,
+      "error",
+      `Še ${unfinished.length} ${unfinished.length === 1 ? "tekma ni" : "tekme niso"} zaključen${unfinished.length === 1 ? "a" : "e"}. Zaključi vse tekme pred arhiviranjem turnirja.`,
+    );
+  }
+
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { isCompleted: true },
+  });
+
+  // Obvesti prijavljene ekipe
+  const registrations = await prisma.tournamentRegistration.findMany({
+    where: { tournamentId },
+    select: { userId: true },
+  });
+  if (registrations.length > 0) {
+    await prisma.notification.createMany({
+      data: registrations.map((r) => ({
+        userId: r.userId,
+        title: `Turnir zaključen: ${tournament.title}`,
+        content: "Rezultati so uradno potrjeni in se štejejo na globalni lestvici.",
+      })),
+    });
+  }
+
+  revalidatePath(`/tournaments/${tournament.slug}`);
+  revalidatePath("/leaderboard");
+  redirect(`/tournaments/${tournament.slug}`);
+}
+
 export async function unfollowTournamentAction(formData: FormData) {
   const user = await requireUser();
   const tournamentId = getString(formData, "tournamentId");
@@ -716,4 +897,77 @@ export async function markNotificationsReadAction() {
 
   revalidatePath("/notifications");
   revalidatePath("/dashboard");
+}
+
+// ── Admin: ročna podelitev Pro ────────────────────────────────
+
+export async function grantProAction(formData: FormData) {
+  await requireAdmin();
+  const userId = getString(formData, "userId");
+  const proUntil = new Date();
+  proUntil.setFullYear(proUntil.getFullYear() + 1);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isPro: true, proUntil },
+  });
+  revalidatePath("/admin");
+  redirect("/admin");
+}
+
+export async function revokeProAction(formData: FormData) {
+  await requireAdmin();
+  const userId = getString(formData, "userId");
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isPro: false, proUntil: null },
+  });
+  revalidatePath("/admin");
+  redirect("/admin");
+}
+
+// ── Pro Activation (mock payment) ────────────────────────────
+
+export async function activateProAction() {
+  const user = await requireUser();
+
+  const proUntil = new Date();
+  proUntil.setFullYear(proUntil.getFullYear() + 1);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { isPro: true, proUntil },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/upgrade");
+  redirect("/dashboard");
+}
+
+// ── School License (admin activates) ────────────────────────────
+
+export async function activateSchoolLicenseAction(formData: FormData) {
+  await requireAdmin();
+  const schoolName = getString(formData, "schoolName");
+  const plan = getString(formData, "plan") || "STANDARD";
+
+  if (!isSchoolOption(schoolName)) {
+    redirectWithMessage("/admin", "error", "Neveljavna šola.");
+  }
+
+  const proUntil = new Date();
+  proUntil.setFullYear(proUntil.getFullYear() + 1);
+
+  // Generiraj unikatno invite kodo (6 znakov, velika črka + številke)
+  const inviteToken = Array.from({ length: 8 }, () =>
+    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]
+  ).join("");
+
+  await (prisma.schoolLicense as any).upsert({
+    where: { schoolName },
+    create: { schoolName, plan, inviteToken, expiresAt: proUntil },
+    update: { plan, inviteToken, expiresAt: proUntil },
+  });
+
+  revalidatePath("/admin");
+  redirect("/admin");
 }
