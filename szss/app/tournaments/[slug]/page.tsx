@@ -1,17 +1,37 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin, MessageSquare, Send, Trophy, Users } from "lucide-react";
+import {
+  CalendarDays,
+  ExternalLink,
+  MapPin,
+  MessageSquare,
+  Send,
+  Trophy,
+  Users,
+  Zap,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
-import { createMessageAction, joinTournamentAction } from "@/lib/actions";
+import {
+  createMessageAction,
+  followTournamentAction,
+  joinTournamentAction,
+  unfollowTournamentAction,
+} from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { getTeamsForUser, getTournamentDetails } from "@/lib/data";
 import {
+  calculateStandings,
   formatDate,
+  getMatchStatusLabel,
+  getMatchStatusTone,
   getRegistrationLabel,
+  getTournamentFormatLabel,
   getTournamentStatus,
+  isProUser,
   normalizeLabel,
 } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
 
 export default async function TournamentDetailsPage({
   params,
@@ -20,9 +40,18 @@ export default async function TournamentDetailsPage({
 }) {
   const user = await requireUser();
   const { slug } = await params;
-  const [tournament, teams] = await Promise.all([getTournamentDetails(slug), getTeamsForUser(user.id)]);
+  const [tournament, teams] = await Promise.all([
+    getTournamentDetails(slug),
+    getTeamsForUser(user.id),
+  ]);
 
   if (!tournament) notFound();
+
+  const isOrganizer = tournament.organizerId === user.id;
+
+  const following = await prisma.tournamentFollower.findUnique({
+    where: { userId_tournamentId: { userId: user.id, tournamentId: tournament.id } },
+  });
 
   const status = getTournamentStatus({
     date: tournament.date,
@@ -39,13 +68,44 @@ export default async function TournamentDetailsPage({
       !alreadyRegisteredTeamIds.has(team.id),
   );
 
+  const standings = calculateStandings(
+    tournament.matches.map((m) => ({
+      homeTeamId: m.homeTeamId,
+      homeTeam: m.homeTeam,
+      awayTeamId: m.awayTeamId,
+      awayTeam: m.awayTeam,
+      scoreHome: m.scoreHome,
+      scoreAway: m.scoreAway,
+      status: m.status,
+      group: m.group,
+    })),
+  );
+
+  const liveOrUpcoming = tournament.matches.filter(
+    (m) => m.status === "UPCOMING" || m.status === "LIVE",
+  ).slice(0, 3);
+
+  const publicUrl = `/t/${tournament.slug}`;
+
   return (
     <AppShell
       user={user}
       activePath="/tournaments"
       title={tournament.title}
-      description="Podrobnosti turnirja, prijavljene ekipe in komunikacija z organizatorjem."
-      actions={<StatusBadge label={status} />}
+      description="Podrobnosti turnirja, lestvica, tekme in komunikacija z organizatorjem."
+      actions={
+        <div className="flex items-center gap-2">
+          <StatusBadge label={status} />
+          {isOrganizer && (
+            <Link
+              href={`/tournaments/${slug}/matches`}
+              className="rounded-2xl bg-[#2BAF3A] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#2BAF3A]/30 transition hover:bg-[#249933]"
+            >
+              Upravljaj tekme
+            </Link>
+          )}
+        </div>
+      }
     >
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
 
@@ -55,7 +115,7 @@ export default async function TournamentDetailsPage({
           {/* Info */}
           <section className="rounded-[22px] border border-slate-200 bg-white p-6">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
-              {tournament.sport}
+              {tournament.sport} · {getTournamentFormatLabel(tournament.format)}
             </p>
             {tournament.description && (
               <p className="mt-3 text-sm leading-7 text-slate-600">{tournament.description}</p>
@@ -80,7 +140,116 @@ export default async function TournamentDetailsPage({
                 </div>
               ))}
             </div>
+
+            {/* Public leaderboard link */}
+            <div className="mt-4 flex items-center gap-3 rounded-[14px] bg-[#f0fdf4] px-4 py-3">
+              <ExternalLink size={14} className="shrink-0 text-[#2BAF3A]" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-[#2BAF3A]">Javna lestvica</p>
+                <p className="truncate text-xs text-slate-500">
+                  Deli to povezavo z gledalci in ekipami (brez prijave)
+                </p>
+              </div>
+              <a
+                href={publicUrl}
+                target="_blank"
+                className="ml-auto shrink-0 rounded-[10px] bg-[#2BAF3A] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#249933]"
+              >
+                Odpri
+              </a>
+            </div>
           </section>
+
+          {/* Live matches */}
+          {liveOrUpcoming.length > 0 && (
+            <section className="rounded-[22px] border border-slate-200 bg-white p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="rounded-xl bg-red-100 p-2">
+                    <Zap size={15} className="text-red-500" />
+                  </div>
+                  <h2 className="text-base font-black text-[#0A2C57]">Tekme</h2>
+                </div>
+                <Link
+                  href={`/tournaments/${slug}/matches`}
+                  className="text-xs font-bold text-[#2BAF3A] hover:underline"
+                >
+                  Vse tekme →
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {liveOrUpcoming.map((match) => (
+                  <div key={match.id} className="flex items-center gap-3 rounded-[14px] bg-slate-50 px-4 py-3">
+                    <p className="flex-1 text-right text-sm font-bold text-[#0A2C57]">{match.homeTeam.name}</p>
+                    <div className="flex items-center gap-1">
+                      {match.status === "LIVE" ? (
+                        <>
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0A2C57] text-sm font-black text-white">
+                            {match.scoreHome ?? "–"}
+                          </span>
+                          <span className="text-xs font-black text-slate-400">:</span>
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0A2C57] text-sm font-black text-white">
+                            {match.scoreAway ?? "–"}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-400">vs</span>
+                      )}
+                    </div>
+                    <p className="flex-1 text-sm font-bold text-[#0A2C57]">{match.awayTeam.name}</p>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getMatchStatusTone(match.status)}`}>
+                      {getMatchStatusLabel(match.status)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Standings */}
+          {standings.length > 0 && (
+            <section className="rounded-[22px] border border-slate-200 bg-white p-6">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="rounded-xl bg-[#2BAF3A]/10 p-2">
+                  <Trophy size={15} className="text-[#2BAF3A]" />
+                </div>
+                <h2 className="text-base font-black text-[#0A2C57]">Lestvica</h2>
+              </div>
+              <div className="overflow-hidden rounded-[14px] border border-slate-100">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">#</th>
+                      <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">Ekipa</th>
+                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">T</th>
+                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">Z</th>
+                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-slate-400">P</th>
+                      <th className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-[#2BAF3A]">Točke</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.slice(0, 6).map((row, i) => (
+                      <tr key={row.teamId} className="border-b border-slate-50 last:border-0">
+                        <td className="px-3 py-2.5 text-xs font-black text-slate-400">{i + 1}</td>
+                        <td className="px-3 py-2.5 font-bold text-[#0A2C57]">{row.teamName}</td>
+                        <td className="px-3 py-2.5 text-center text-slate-500">{row.played}</td>
+                        <td className="px-3 py-2.5 text-center font-bold text-emerald-600">{row.wins}</td>
+                        <td className="px-3 py-2.5 text-center font-bold text-rose-500">{row.losses}</td>
+                        <td className="px-3 py-2.5 text-center font-black text-[#2BAF3A]">{row.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <a
+                href={publicUrl}
+                target="_blank"
+                className="mt-3 inline-block text-xs font-bold text-[#2BAF3A] hover:underline"
+              >
+                Celotna lestvica →
+              </a>
+            </section>
+          )}
 
           {/* Registered teams */}
           <section className="rounded-[22px] border border-slate-200 bg-white p-6">
@@ -94,7 +263,6 @@ export default async function TournamentDetailsPage({
               <span className="text-xs font-bold text-slate-400">{Math.round(progress)}%</span>
             </div>
 
-            {/* Progress bar */}
             <div className="mb-5 h-2 overflow-hidden rounded-full bg-slate-100">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#2BAF3A] to-[#0A2C57] transition-all"
@@ -161,7 +329,7 @@ export default async function TournamentDetailsPage({
                 name="content"
                 rows={3}
                 placeholder="Pošlji vprašanje organizatorju ali obvestilo ekipam…"
-                className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 placeholder:text-slate-400"
+                className="field"
               />
               <button className="flex items-center gap-2 rounded-[12px] bg-[#0A2C57] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#0d3570]">
                 <Send size={13} />
@@ -174,7 +342,7 @@ export default async function TournamentDetailsPage({
         {/* Right sidebar */}
         <div className="space-y-4">
 
-          {/* Register team */}
+          {/* Follow / Register */}
           <div className="rounded-[22px] border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2.5 mb-4">
               <div className="rounded-xl bg-[#2BAF3A]/10 p-2">
@@ -186,11 +354,7 @@ export default async function TournamentDetailsPage({
             {eligibleTeams.length > 0 ? (
               <form action={joinTournamentAction} className="space-y-3">
                 <input type="hidden" name="tournamentId" value={tournament.id} />
-                <select
-                  name="teamId"
-                  defaultValue=""
-                  className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
-                >
+                <select name="teamId" defaultValue="" className="field">
                   <option value="" disabled>Izberi ekipo…</option>
                   {eligibleTeams.map((team) => (
                     <option key={team.id} value={team.id}>
@@ -205,13 +369,6 @@ export default async function TournamentDetailsPage({
             ) : teams.length > 0 ? (
               <div className="rounded-[14px] bg-slate-50 p-4 text-sm text-slate-600">
                 <p className="font-semibold">Ni ekipe za <span className="text-[#0A2C57]">{tournament.sport}</span></p>
-                <div className="mt-2 space-y-1.5">
-                  {teams.map((team) => (
-                    <div key={team.id} className="rounded-[10px] bg-white px-3 py-2 text-xs">
-                      {team.name} · <span className="text-slate-400">{team.sport}</span>
-                    </div>
-                  ))}
-                </div>
                 <Link href="/teams" className="mt-3 inline-block text-xs font-bold text-[#2BAF3A]">
                   Upravljaj ekipe →
                 </Link>
@@ -226,14 +383,62 @@ export default async function TournamentDetailsPage({
             )}
           </div>
 
+          {/* Follow button */}
+          {!isOrganizer && (
+            <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+              <p className="mb-3 text-sm font-black text-[#0A2C57]">Sledi turnirju</p>
+              <p className="mb-4 text-xs text-slate-500">
+                Prejemaj obvestila o začetku tekem in rezultatih.
+              </p>
+              {following ? (
+                <form action={unfollowTournamentAction}>
+                  <input type="hidden" name="tournamentId" value={tournament.id} />
+                  <button className="w-full rounded-[12px] border border-slate-200 py-2.5 text-sm font-bold text-slate-600 transition hover:border-rose-200 hover:text-rose-600">
+                    Prekini sledenje
+                  </button>
+                </form>
+              ) : (
+                <form action={followTournamentAction}>
+                  <input type="hidden" name="tournamentId" value={tournament.id} />
+                  <button className="w-full rounded-[12px] bg-[#0A2C57] py-2.5 text-sm font-bold text-white transition hover:bg-[#0d3570]">
+                    Sledi turnirju
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* Organizer quick links */}
+          {isOrganizer && (
+            <div className="rounded-[22px] border border-slate-200 bg-white p-5 space-y-2">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Organizator</p>
+              <Link
+                href={`/tournaments/${slug}/matches`}
+                className="flex items-center justify-between rounded-[14px] bg-[#2BAF3A]/8 px-4 py-3 text-sm font-bold text-[#2BAF3A] transition hover:bg-[#2BAF3A]/15"
+              >
+                Upravljaj tekme
+                <span>→</span>
+              </Link>
+              <a
+                href={publicUrl}
+                target="_blank"
+                className="flex items-center justify-between rounded-[14px] bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+              >
+                Javna lestvica
+                <ExternalLink size={13} />
+              </a>
+            </div>
+          )}
+
           {/* Steps */}
           <div className="rounded-[22px] border border-slate-200 bg-white p-5">
             <h2 className="mb-4 text-sm font-black text-[#0A2C57]">Kako deluje?</h2>
             <div className="space-y-3">
               {[
-                "Organizator objavi turnir in določi max. število ekip.",
-                "Šole prijavijo ekipe in spremljajo potrditve.",
-                "Komunikacija in obvestila so zbrani tukaj.",
+                "Organizator ustvari turnir in razporedi tekme.",
+                "Šole prijavijo ekipe in sledijo turnirju.",
+                "Rezultati se vnašajo po vsaki tekmi.",
+                "Lestvica se samodejno posodablja v živo.",
               ].map((step, i) => (
                 <div key={i} className="flex items-start gap-3 text-xs text-slate-600">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0A2C57]/8 text-[10px] font-black text-[#0A2C57]">

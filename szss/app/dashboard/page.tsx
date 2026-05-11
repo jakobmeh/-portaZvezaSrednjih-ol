@@ -1,14 +1,32 @@
 import Link from "next/link";
-import { CalendarDays, Users, Trophy, School, ChevronRight, Bell, ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  CalendarDays,
+  ChevronRight,
+  ExternalLink,
+  School,
+  Trophy,
+  Users,
+  Zap,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { requireUser } from "@/lib/auth";
 import { getDashboardData } from "@/lib/data";
-import { formatCompactDate, formatDate, getRegistrationLabel } from "@/lib/utils";
+import {
+  formatCompactDate,
+  formatDate,
+  getMatchStatusLabel,
+  getMatchStatusTone,
+  getRegistrationLabel,
+  isProUser,
+} from "@/lib/utils";
 
 export default async function DashboardPage() {
   const user = await requireUser();
   const data = await getDashboardData(user.id);
+  const pro = isProUser(user);
 
   return (
     <AppShell
@@ -30,14 +48,22 @@ export default async function DashboardPage() {
           >
             Razišči turnirje
           </Link>
-          {user.role === "ADMIN" ? (
+          {pro ? (
             <Link
               href="/tournaments/create"
               className="rounded-2xl bg-[#2BAF3A] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#2BAF3A]/30 transition hover:bg-[#249933]"
             >
               + Ustvari turnir
             </Link>
-          ) : null}
+          ) : (
+            <Link
+              href="/upgrade"
+              className="flex items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-amber-400/30 transition hover:bg-amber-600"
+            >
+              <Zap size={14} />
+              Pro
+            </Link>
+          )}
         </>
       }
     >
@@ -108,6 +134,57 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      {/* Organizer section */}
+      {pro && data.myOrganized.length > 0 && (
+        <section className="mt-5 rounded-[26px] border border-[#2BAF3A]/20 bg-[#f0fdf4] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-[#2BAF3A]/15 p-2.5">
+                <Trophy size={17} className="text-[#2BAF3A]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Moji turnirji</h2>
+                <p className="text-xs text-slate-500">Turnirji, ki jih organiziraš</p>
+              </div>
+            </div>
+            <Link
+              href="/tournaments/create"
+              className="flex items-center gap-1 rounded-xl bg-[#2BAF3A] px-3 py-2 text-xs font-black text-white transition hover:bg-[#249933]"
+            >
+              + Nov turnir
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {data.myOrganized.map((t) => (
+              <div key={t.id} className="rounded-[18px] bg-white p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-wider text-[#2BAF3A]">{t.sport ?? ""}</p>
+                <p className="mt-1 font-bold text-[#0A2C57] truncate">{t.title}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{t.registrations.length} ekip prijavljenih</p>
+                {t.matches.length > 0 && (
+                  <p className="mt-0.5 text-xs text-slate-400">{t.matches.length} prihajajoče tekme</p>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <Link
+                    href={`/tournaments/${t.slug}/matches`}
+                    className="flex-1 rounded-[10px] bg-[#2BAF3A]/10 px-2 py-1.5 text-center text-xs font-bold text-[#2BAF3A] transition hover:bg-[#2BAF3A]/20"
+                  >
+                    Tekme
+                  </Link>
+                  <a
+                    href={`/t/${t.slug}`}
+                    target="_blank"
+                    className="flex items-center gap-1 rounded-[10px] bg-slate-100 px-2 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-200"
+                  >
+                    <ExternalLink size={11} />
+                    Lestvica
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Main grid */}
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
 
@@ -132,34 +209,43 @@ export default async function DashboardPage() {
           </div>
 
           <div className="mt-5 space-y-3">
-            {data.upcoming.map((tournament) => (
-              <Link
-                key={tournament.id}
-                href={`/tournaments/${tournament.slug}`}
-                className="group block rounded-[18px] border border-slate-100 p-5 transition hover:border-[#2BAF3A]/30 hover:bg-[#f9fffe] hover:shadow-sm"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
-                      {tournament.sport}
-                    </p>
-                    <h3 className="mt-1.5 truncate text-base font-bold text-[#0A2C57]">
-                      {tournament.title}
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {formatDate(tournament.date)} · {tournament.location}
-                    </p>
+            {data.upcoming.length > 0 ? (
+              data.upcoming.map((tournament) => (
+                <Link
+                  key={tournament.id}
+                  href={`/tournaments/${tournament.slug}`}
+                  className="group block rounded-[18px] border border-slate-100 p-5 transition hover:border-[#2BAF3A]/30 hover:bg-[#f9fffe] hover:shadow-sm"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2BAF3A]">
+                        {tournament.sport}
+                      </p>
+                      <h3 className="mt-1.5 truncate text-base font-bold text-[#0A2C57]">
+                        {tournament.title}
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatDate(tournament.date)} · {tournament.location}
+                      </p>
+                    </div>
+                    <StatusBadge label={tournament.status} />
                   </div>
-                  <StatusBadge label={tournament.status} />
-                </div>
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-xs text-slate-400">Org: {tournament.organizer.fullName}</span>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-                    {tournament.registrations.length}/{tournament.maxTeams} ekip
-                  </span>
-                </div>
-              </Link>
-            ))}
+                  <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <span className="text-xs text-slate-400">Org: {tournament.organizer.fullName}</span>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                      {tournament.registrations.length}/{tournament.maxTeams} ekip
+                    </span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-[18px] border border-dashed border-slate-200 p-8 text-center">
+                <p className="text-sm text-slate-400">Ni prihajajočih turnirjev.</p>
+                <Link href="/tournaments" className="mt-2 inline-block text-xs font-bold text-[#2BAF3A]">
+                  Prebrskaj vse →
+                </Link>
+              </div>
+            )}
           </div>
         </section>
 
@@ -168,22 +254,43 @@ export default async function DashboardPage() {
 
           {/* Notifications */}
           <section className="rounded-[26px] border border-slate-100 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-amber-50 p-2.5">
-                <Bell size={17} className="text-amber-500" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-amber-50 p-2.5">
+                  <Bell size={17} className="text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Obvestila</h2>
+                  <p className="text-xs text-slate-400">Zadnje novosti</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Obvestila</h2>
-                <p className="text-xs text-slate-400">Zadnje novosti in prijave</p>
-              </div>
+              <Link
+                href="/notifications"
+                className="text-xs font-bold text-[#2BAF3A] hover:underline"
+              >
+                Vsa →
+              </Link>
             </div>
             <div className="mt-5 space-y-3">
-              {data.notifications.map((item) => (
-                <div key={item.id} className="rounded-[16px] border border-slate-100 bg-slate-50/80 p-4">
-                  <p className="text-sm font-bold text-[#0A2C57]">{item.title}</p>
-                  <p className="mt-1.5 text-xs leading-5 text-slate-500">{item.content}</p>
-                </div>
-              ))}
+              {data.notifications.length > 0 ? (
+                data.notifications.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`rounded-[16px] p-4 ${item.isRead ? "border border-slate-100 bg-slate-50/80" : "border border-[#2BAF3A]/20 bg-[#f0fdf4]"}`}
+                  >
+                    {!item.isRead && (
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#2BAF3A]" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#2BAF3A]">Novo</span>
+                      </div>
+                    )}
+                    <p className="text-sm font-bold text-[#0A2C57]">{item.title}</p>
+                    <p className="mt-1.5 text-xs leading-5 text-slate-500">{item.content}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-400">Ni novih obvestil.</p>
+              )}
             </div>
           </section>
 
@@ -228,6 +335,58 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* Followed tournaments */}
+      {data.followedTournaments.length > 0 && (
+        <section className="mt-5 rounded-[26px] border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="rounded-xl bg-[#0A2C57]/8 p-2.5">
+              <Bell size={17} className="text-[#0A2C57]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black tracking-tight text-[#0A2C57]">Sledim turnirjem</h2>
+              <p className="text-xs text-slate-400">Prihajajoče tekme turnirjev, ki jim slediš</p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {data.followedTournaments.map((follower) => (
+              <div key={follower.id} className="rounded-[18px] border border-slate-100 p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <Link
+                    href={`/tournaments/${follower.tournament.slug}`}
+                    className="text-sm font-bold text-[#0A2C57] hover:text-[#2BAF3A] truncate"
+                  >
+                    {follower.tournament.title}
+                  </Link>
+                  <a
+                    href={`/t/${follower.tournament.slug}`}
+                    target="_blank"
+                    className="ml-2 shrink-0 text-slate-400 hover:text-[#2BAF3A]"
+                  >
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+                <div className="space-y-2">
+                  {follower.tournament.matches.length === 0 ? (
+                    <p className="text-xs text-slate-400">Ni prihajajočih tekem.</p>
+                  ) : (
+                    follower.tournament.matches.map((match) => (
+                      <div key={match.id} className="flex items-center gap-2 rounded-[10px] bg-slate-50 px-3 py-2">
+                        <p className="flex-1 truncate text-xs font-bold text-[#0A2C57]">
+                          {match.homeTeam.name} <span className="font-normal text-slate-400">vs</span> {match.awayTeam.name}
+                        </p>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${getMatchStatusTone(match.status)}`}>
+                          {getMatchStatusLabel(match.status)}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Bottom grid */}
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
 
@@ -251,18 +410,22 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="mt-5 space-y-3">
-            {data.teams.map((team) => (
-              <div key={team.id} className="flex items-center justify-between rounded-[16px] border border-slate-100 bg-slate-50/80 p-4">
-                <div>
-                  <p className="font-bold text-[#0A2C57]">{team.name}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    <span className="font-semibold text-slate-600">{team.players.length} članov</span>
-                    {" · "}<span className="font-semibold text-slate-600">{team.registrations.length} prijav</span>
-                  </p>
+            {data.teams.length > 0 ? (
+              data.teams.map((team) => (
+                <div key={team.id} className="flex items-center justify-between rounded-[16px] border border-slate-100 bg-slate-50/80 p-4">
+                  <div>
+                    <p className="font-bold text-[#0A2C57]">{team.name}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      <span className="font-semibold text-slate-600">{team.players.length} članov</span>
+                      {" · "}<span className="font-semibold text-slate-600">{team.registrations.length} prijav</span>
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">{team.sport}</span>
                 </div>
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">{team.sport}</span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">Ni ekip.</p>
+            )}
           </div>
         </section>
 

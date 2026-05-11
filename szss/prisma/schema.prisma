@@ -22,6 +22,19 @@ enum TournamentRegistrationStatus {
   WAITLISTED
 }
 
+enum TournamentFormat {
+  GROUP_STAGE
+  KNOCKOUT
+  COMBINED
+}
+
+enum MatchStatus {
+  UPCOMING
+  LIVE
+  FINISHED
+  CANCELLED
+}
+
 model User {
   id               String         @id @default(cuid())
   fullName         String
@@ -31,6 +44,8 @@ model User {
   role             UserRole
   approvalStatus   ApprovalStatus @default(PENDING)
   schoolCardImage  String?
+  isPro            Boolean        @default(false)
+  proUntil         DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   organizedEvents  Tournament[]   @relation("TournamentOrganizer")
@@ -40,6 +55,7 @@ model User {
   registrations    TournamentRegistration[]
   notifications    Notification[]
   sentMessages     Message[]      @relation("MessageSender")
+  followedTournaments TournamentFollower[]
 }
 
 model Session {
@@ -52,21 +68,26 @@ model Session {
 }
 
 model Tournament {
-  id             String                   @id @default(cuid())
-  title          String
-  slug           String                   @unique
-  sport          String
-  description    String
-  location       String
-  date           DateTime
-  maxTeams       Int
-  organizerId    String
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-  organizer      User                     @relation("TournamentOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
-  registrations  TournamentRegistration[]
-  announcements  Announcement[]
-  messages       Message[]
+  id                      String                   @id @default(cuid())
+  title                   String
+  slug                    String                   @unique
+  sport                   String
+  description             String
+  location                String
+  date                    DateTime
+  maxTeams                Int
+  format                  TournamentFormat         @default(GROUP_STAGE)
+  selfRegistrationEnabled Boolean                  @default(false)
+  selfRegistrationToken   String?                  @unique
+  organizerId             String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  organizer               User                     @relation("TournamentOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  registrations           TournamentRegistration[]
+  announcements           Announcement[]
+  messages                Message[]
+  matches                 Match[]
+  followers               TournamentFollower[]
 }
 
 model Team {
@@ -80,6 +101,8 @@ model Team {
   createdBy      User                     @relation(fields: [createdById], references: [id], onDelete: Cascade)
   players        TeamMember[]
   registrations  TournamentRegistration[]
+  homeMatches    Match[]                  @relation("HomeTeam")
+  awayMatches    Match[]                  @relation("AwayTeam")
 }
 
 model TeamMember {
@@ -106,6 +129,38 @@ model TournamentRegistration {
   user          User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tournamentId, teamId])
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  tournamentId String
+  homeTeamId   String
+  awayTeamId   String
+  scoreHome    Int?
+  scoreAway    Int?
+  scheduledAt  DateTime?
+  location     String?
+  court        String?
+  status       MatchStatus @default(UPCOMING)
+  round        Int?
+  group        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  homeTeam     Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam     Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+}
+
+model TournamentFollower {
+  id           String   @id @default(cuid())
+  userId       String
+  tournamentId String
+  teamId       String?
+  createdAt    DateTime @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tournamentId])
 }
 
 model Announcement {

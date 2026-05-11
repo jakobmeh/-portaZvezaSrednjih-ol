@@ -7,15 +7,18 @@ import {
   ShieldCheck,
   Trophy,
   Users,
+  Zap,
 } from "lucide-react";
 import { Logo } from "./logo";
 import { logoutAction } from "@/lib/actions";
-import { getRoleLabel } from "@/lib/utils";
+import { getRoleLabel, isProUser } from "@/lib/utils";
 
 type ShellUser = {
   fullName: string;
   role: "ADMIN" | "PARTICIPANT";
   schoolName: string;
+  isPro: boolean;
+  proUntil: Date | null;
 };
 
 const navItems = [
@@ -48,6 +51,8 @@ export function AppShell({
   children: React.ReactNode;
   actions?: React.ReactNode;
 }) {
+  const pro = isProUser(user);
+
   return (
     <div className="min-h-screen bg-[#f0f4f8]">
       <div className="mx-auto grid min-h-screen max-w-[1600px] gap-4 p-4 lg:grid-cols-[260px_1fr]">
@@ -101,8 +106,31 @@ export function AppShell({
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Notifications hint */}
-          <div className="rounded-[18px] bg-[linear-gradient(135deg,rgba(43,175,58,0.28),rgba(43,175,58,0.06))] p-3.5 ring-1 ring-[#2BAF3A]/20">
+          {/* Upgrade CTA for non-pro */}
+          {!pro && (
+            <Link
+              href="/upgrade"
+              className="flex items-center gap-2.5 rounded-[18px] bg-gradient-to-r from-[#2BAF3A]/30 to-[#2BAF3A]/10 p-3.5 ring-1 ring-[#2BAF3A]/30 transition hover:ring-[#2BAF3A]/60"
+            >
+              <div className="rounded-lg bg-[#2BAF3A]/25 p-1.5">
+                <Zap size={13} className="text-[#8EF29A]" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-white">Nadgradi na Pro</p>
+                <p className="mt-0.5 text-[10px] leading-3 text-white/45">5€/mesec · ustvari turnirje</p>
+              </div>
+            </Link>
+          )}
+
+          {/* Notifications */}
+          <Link
+            href="/notifications"
+            className={`rounded-[18px] p-3.5 ring-1 transition ${
+              activePath === "/notifications"
+                ? "bg-[#2BAF3A]/20 ring-[#2BAF3A]/40"
+                : "bg-[linear-gradient(135deg,rgba(43,175,58,0.18),rgba(43,175,58,0.04))] ring-[#2BAF3A]/15 hover:ring-[#2BAF3A]/30"
+            }`}
+          >
             <div className="flex items-start gap-2.5">
               <div className="mt-0.5 rounded-lg bg-[#2BAF3A]/25 p-1.5">
                 <Bell size={13} className="text-[#8EF29A]" />
@@ -110,11 +138,11 @@ export function AppShell({
               <div>
                 <p className="text-xs font-bold text-white">Obvestila</p>
                 <p className="mt-0.5 text-[11px] leading-4 text-white/50">
-                  Prijave, odobritve in novosti iz tvoje šole.
+                  Prijave, tekme in novosti.
                 </p>
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Profile */}
           <div className="rounded-[18px] bg-white/[0.07] p-3.5 ring-1 ring-white/[0.07]">
@@ -131,6 +159,11 @@ export function AppShell({
               <span className="rounded-full bg-[#2BAF3A]/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#8EF29A]">
                 {getRoleLabel(user.role)}
               </span>
+              {pro && user.role !== "ADMIN" && (
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                  Pro
+                </span>
+              )}
             </div>
             <form action={logoutAction} className="mt-3">
               <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/8 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-rose-500/20 hover:text-rose-300">

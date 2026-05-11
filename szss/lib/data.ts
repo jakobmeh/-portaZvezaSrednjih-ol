@@ -9,7 +9,7 @@ export async function getDashboardData(userId: string) {
     where: { id: userId },
   });
 
-  const [notifications, tournaments, teams, announcements, myRegistrations, schoolmates] =
+  const [notifications, tournaments, teams, announcements, myRegistrations, schoolmates, followedTournaments] =
     await Promise.all([
       prisma.notification.findMany({
         where: { userId },
@@ -56,6 +56,25 @@ export async function getDashboardData(userId: string) {
           approvalStatus: ApprovalStatus.APPROVED,
         },
       }),
+      prisma.tournamentFollower.findMany({
+        where: { userId },
+        include: {
+          tournament: {
+            include: {
+              organizer: true,
+              registrations: true,
+              matches: {
+                where: { status: { in: ["UPCOMING", "LIVE"] } },
+                include: { homeTeam: true, awayTeam: true },
+                orderBy: { scheduledAt: "asc" },
+                take: 3,
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      }),
     ]);
 
   const upcoming = tournaments.map((tournament) => ({
@@ -67,6 +86,18 @@ export async function getDashboardData(userId: string) {
     }),
   }));
 
+  const myOrganized = currentUser.role === "ADMIN" || currentUser.isPro
+    ? await prisma.tournament.findMany({
+        where: { organizerId: userId },
+        include: {
+          registrations: true,
+          matches: { where: { status: "UPCOMING" }, orderBy: { scheduledAt: "asc" }, take: 3 },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      })
+    : [];
+
   const stats = {
     tournaments: upcoming.length,
     joined: myRegistrations.length,
@@ -75,7 +106,7 @@ export async function getDashboardData(userId: string) {
     pendingNotifications: notifications.filter((item) => !item.isRead).length,
   };
 
-  return { currentUser, notifications, upcoming, teams, announcements, myRegistrations, stats };
+  return { currentUser, notifications, upcoming, teams, announcements, myRegistrations, stats, followedTournaments, myOrganized };
 }
 
 export async function getTournamentList(filters: {
@@ -144,6 +175,34 @@ export async function getTournamentDetails(slug: string) {
       },
       messages: {
         orderBy: { createdAt: "desc" },
+      },
+      matches: {
+        include: {
+          homeTeam: true,
+          awayTeam: true,
+        },
+        orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
+      },
+    },
+  });
+}
+
+export async function getTournamentBySlugPublic(slug: string) {
+  return prisma.tournament.findUnique({
+    where: { slug },
+    include: {
+      organizer: { select: { fullName: true, schoolName: true } },
+      registrations: {
+        include: { team: { select: { id: true, name: true, schoolName: true } } },
+        where: { status: "CONFIRMED" },
+        orderBy: { createdAt: "asc" },
+      },
+      matches: {
+        include: {
+          homeTeam: { select: { id: true, name: true } },
+          awayTeam: { select: { id: true, name: true } },
+        },
+        orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
       },
     },
   });
@@ -225,4 +284,23 @@ export async function getAdminData() {
   ]);
 
   return { pendingUsers, tournaments, users };
+}
+
+export async function getMatchesForTournament(tournamentId: string) {
+  return prisma.match.findMany({
+    where: { tournamentId },
+    include: {
+      homeTeam: { select: { id: true, name: true, schoolName: true } },
+      awayTeam: { select: { id: true, name: true, schoolName: true } },
+    },
+    orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+export async function getNotificationsForUser(userId: string) {
+  return prisma.notification.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
 }

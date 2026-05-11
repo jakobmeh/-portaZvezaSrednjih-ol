@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { CalendarDays, Info, MapPin, Trophy, Users } from "lucide-react";
+import { CalendarDays, Info, MapPin, Trophy, Users, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { createTournamentAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
-import { SPORTS } from "@/lib/utils";
+import { isProUser, SPORTS, TOURNAMENT_FORMATS } from "@/lib/utils";
 
 export default async function CreateTournamentPage({
   searchParams,
@@ -11,8 +11,8 @@ export default async function CreateTournamentPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const user = await requireUser();
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
+  if (!isProUser(user)) {
+    redirect("/upgrade");
   }
 
   const params = await searchParams;
@@ -22,7 +22,7 @@ export default async function CreateTournamentPage({
       user={user}
       activePath="/tournaments"
       title="Ustvari turnir"
-      description="Objavi nov turnir, nastavi termin, maksimalno število ekip in opis za prijave."
+      description="Objavi nov turnir, nastavi format, termin, maksimalno število ekip in opis za prijave."
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
 
@@ -37,29 +37,24 @@ export default async function CreateTournamentPage({
           <form action={createTournamentAction} className="space-y-5">
             <div className="grid gap-5 md:grid-cols-2">
               <label className="block">
-                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-400">
+                <span className="label-text">
                   <Trophy size={11} />
                   Naziv turnirja
                 </span>
                 <input
                   name="title"
                   required
-                  className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                  className="field"
                   placeholder="Npr. ŠZSŠ futsal cup"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-400">
+                <span className="label-text">
                   <Trophy size={11} />
                   Šport
                 </span>
-                <select
-                  name="sport"
-                  required
-                  defaultValue=""
-                  className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-                >
+                <select name="sport" required defaultValue="" className="field">
                   <option value="" disabled>Izberi šport</option>
                   {SPORTS.map((sport) => (
                     <option key={sport} value={sport}>{sport}</option>
@@ -68,7 +63,7 @@ export default async function CreateTournamentPage({
               </label>
 
               <label className="block">
-                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-400">
+                <span className="label-text">
                   <CalendarDays size={11} />
                   Datum in ura
                 </span>
@@ -76,25 +71,25 @@ export default async function CreateTournamentPage({
                   name="date"
                   type="datetime-local"
                   required
-                  className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                  className="field"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-400">
+                <span className="label-text">
                   <MapPin size={11} />
                   Lokacija
                 </span>
                 <input
                   name="location"
                   required
-                  className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                  className="field"
                   placeholder="Športna dvorana Kranj"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-1.5 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-400">
+                <span className="label-text">
                   <Users size={11} />
                   Maksimalno ekip
                 </span>
@@ -103,23 +98,48 @@ export default async function CreateTournamentPage({
                   type="number"
                   min={2}
                   required
-                  className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                  className="field"
                   placeholder="8"
                 />
+              </label>
+
+              <label className="block">
+                <span className="label-text">
+                  <Zap size={11} />
+                  Format turnirja
+                </span>
+                <select name="format" required defaultValue="GROUP_STAGE" className="field">
+                  {TOURNAMENT_FORMATS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
               </label>
             </div>
 
             <label className="block">
-              <span className="mb-1.5 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-400">
-                Opis turnirja
-              </span>
+              <span className="label-text">Opis turnirja</span>
               <textarea
                 name="description"
                 required
-                rows={5}
-                className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 placeholder:text-slate-400"
+                rows={4}
+                className="field"
                 placeholder="Kratek opis pravil, poteka in potrebne opreme…"
               />
+            </label>
+
+            {/* Self-registration toggle */}
+            <label className="flex cursor-pointer items-start gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+              <input
+                type="checkbox"
+                name="selfRegistrationEnabled"
+                className="mt-0.5 h-4 w-4 accent-[#2BAF3A]"
+              />
+              <div>
+                <p className="text-sm font-bold text-[#0A2C57]">Omogoči samostojno prijavo</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Ekipe se lahko prijavijo prek javne povezave brez predhodne odobritve.
+                </p>
+              </div>
             </label>
 
             <button className="rounded-[14px] bg-[#2BAF3A] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#2BAF3A]/25 transition hover:bg-[#249933]">
@@ -141,11 +161,26 @@ export default async function CreateTournamentPage({
           </div>
 
           <div className="rounded-[22px] border border-slate-100 bg-white p-5 space-y-3">
+            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Formati</p>
+            {TOURNAMENT_FORMATS.map((f) => (
+              <div key={f.value} className="flex items-start gap-2.5 text-sm text-slate-600">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#2BAF3A]/10 text-[10px] font-black text-[#2BAF3A]">
+                  {f.label.charAt(0)}
+                </span>
+                <div>
+                  <p className="font-bold text-[#0A2C57]">{f.label}</p>
+                  <p className="text-xs text-slate-500">{f.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-[22px] border border-slate-100 bg-white p-5 space-y-3">
             {[
               "Turnir je viden vsem registriranim uporabnikom",
-              "Ekipe se prijavijo z izborom iz dropdown menija",
-              "Registracije ostanejo zbrane na strani turnirja",
-              "Komunikacija poteka prek sekcije za sporočila",
+              "Lestvica se samodejno posodobi po vsakem rezultatu",
+              "Javna lestvica je dostopna brez prijave",
+              "Pošlji javno povezavo gledalcem in ekipam",
             ].map((tip, i) => (
               <div key={i} className="flex items-start gap-3 text-sm text-slate-600">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#2BAF3A]/12 text-[10px] font-black text-[#2BAF3A]">

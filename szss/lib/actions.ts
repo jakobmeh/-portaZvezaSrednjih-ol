@@ -7,10 +7,10 @@ import { put } from "@vercel/blob";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { ApprovalStatus, UserRole } from "@prisma/client";
+import { ApprovalStatus, MatchStatus, TournamentFormat, UserRole } from "@prisma/client";
 import { prisma } from "./prisma";
 import { createSession, destroySession, requireAdmin, requireUser } from "./auth";
-import { slugify } from "./utils";
+import { isProUser, slugify } from "./utils";
 import { isSchoolOption } from "./schools";
 
 const MAX_SCHOOL_CARD_SIZE = 4.5 * 1024 * 1024;
@@ -193,8 +193,8 @@ export async function logoutAction() {
 
 export async function createTournamentAction(formData: FormData) {
   const user = await requireUser();
-  if (user.role !== "ADMIN") {
-    redirect("/dashboard");
+  if (!isProUser(user)) {
+    redirect("/upgrade");
   }
 
   const title = getString(formData, "title");
@@ -203,6 +203,8 @@ export async function createTournamentAction(formData: FormData) {
   const description = getString(formData, "description");
   const maxTeams = Number(getString(formData, "maxTeams"));
   const date = new Date(getString(formData, "date"));
+  const format = (getString(formData, "format") || "GROUP_STAGE") as TournamentFormat;
+  const selfRegistrationEnabled = getString(formData, "selfRegistrationEnabled") === "on";
 
   if (!title || !sport || !location || !description || !maxTeams || Number.isNaN(date.getTime())) {
     redirectWithMessage("/tournaments/create", "error", "Preveri vsa polja turnirja.");
@@ -216,6 +218,8 @@ export async function createTournamentAction(formData: FormData) {
     suffix += 1;
   }
 
+  const selfRegistrationToken = selfRegistrationEnabled ? randomUUID() : null;
+
   await prisma.tournament.create({
     data: {
       title,
@@ -225,6 +229,9 @@ export async function createTournamentAction(formData: FormData) {
       description,
       maxTeams,
       date,
+      format,
+      selfRegistrationEnabled,
+      selfRegistrationToken,
       organizerId: user.id,
     },
   });
@@ -486,4 +493,227 @@ export async function createMessageAction(formData: FormData) {
 
   revalidatePath(`/tournaments/${tournament.slug}`);
   redirect(`/tournaments/${tournament.slug}`);
+}
+
+// ── Match Management ────────────────────────────────────────
+
+export async function createMatchAction(formData: FormData) {
+  const user = await requireUser();
+  const tournamentId = getString(formData, "tournamentId");
+  const homeTeamId = getString(formData, "homeTeamId");
+  const awayTeamId = getString(formData, "awayTeamId");
+  const scheduledAtRaw = getString(formData, "scheduledAt");
+  const location = getString(formData, "location");
+  const court = getString(formData, "court");
+  const roundRaw = getString(formData, "round");
+  const group = getString(formData, "group");
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  if (!tournament || tournament.organizerId !== user.id) {
+    redirectWithMessage(`/tournaments/${tournamentId}/matches`, "error", "Nimate dovoljenja.");
+  }
+
+  if (homeTeamId === awayTeamId) {
+    redirectWithMessage(`/tournaments/${tournament.slug}/matches`, "error", "Ekipi ne smeta biti isti.");
+  }
+
+  const scheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw) : null;
+  const round = roundRaw ? Number(roundRaw) : null;
+
+  await prisma.match.create({
+    data: {
+      tournamentId,
+      homeTeamId,
+      awayTeamId,
+      scheduledAt,
+      location: location || null,
+      court: court || null,
+      round: round || null,
+      group: group || null,
+    },
+  });
+
+  revalidatePath(`/tournaments/${tournament.slug}`);
+  revalidatePath(`/tournaments/${tournament.slug}/matches`);
+  revalidatePath(`/t/${tournament.slug}`);
+  redirect(`/tournaments/${tournament.slug}/matches`);
+}
+
+export async function updateMatchResultAction(formData: FormData) {
+  const user = await requireUser();
+  const matchId = getString(formData, "matchId");
+  const scoreHomeRaw = getString(formData, "scoreHome");
+  const scoreAwayRaw = getString(formData, "scoreAway");
+  const status = (getString(formData, "status") || "FINISHED") as MatchStatus;
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: true, homeTeam: true, awayTeam: true },
+  });
+
+  if (!match || match.tournament.organizerId !== user.id) {
+    redirect("/dashboard");
+  }
+
+  const scoreHome = scoreHomeRaw !== "" ? Number(scoreHomeRaw) : null;
+  const scoreAway = scoreAwayRaw !== "" ? Number(scoreAwayRaw) : null;
+
+  await prisma.match.update({
+    where: { id: matchId },
+    data: {
+      scoreHome,
+      scoreAway,
+      status,
+    },
+  });
+
+  // Notify followers whose team played
+  if (status === "FINISHED" && scoreHome !== null && scoreAway !== null) {
+    const followers = await prisma.tournamentFollower.findMany({
+      where: {
+        tournamentId: match.tournamentId,
+        teamId: { in: [match.homeTeamId, match.awayTeamId] },
+      },
+      select: { userId: true, teamId: true },
+    });
+
+    if (followers.length > 0) {
+      const homeResult = scoreHome > scoreAway ? "zmagala" : scoreHome < scoreAway ? "izgubila" : "remizirala";
+      const awayResult = scoreAway > scoreHome ? "zmagala" : scoreAway < scoreHome ? "izgubila" : "remizirala";
+
+      await prisma.notification.createMany({
+        data: followers.map((f) => {
+          const isHome = f.teamId === match.homeTeamId;
+          const myTeam = isHome ? match.homeTeam.name : match.awayTeam.name;
+          const opponent = isHome ? match.awayTeam.name : match.homeTeam.name;
+          const result = isHome ? homeResult : awayResult;
+          const myScore = isHome ? scoreHome : scoreAway;
+          const oppScore = isHome ? scoreAway : scoreHome;
+          return {
+            userId: f.userId,
+            title: `Rezultat tekme: ${myTeam}`,
+            content: `${myTeam} je ${result} proti ${opponent} (${myScore}:${oppScore}).`,
+          };
+        }),
+      });
+    }
+  }
+
+  revalidatePath(`/tournaments/${match.tournament.slug}`);
+  revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
+  revalidatePath(`/t/${match.tournament.slug}`);
+  redirect(`/tournaments/${match.tournament.slug}/matches`);
+}
+
+export async function setMatchStatusAction(formData: FormData) {
+  const user = await requireUser();
+  const matchId = getString(formData, "matchId");
+  const status = getString(formData, "status") as MatchStatus;
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: true },
+  });
+
+  if (!match || match.tournament.organizerId !== user.id) {
+    redirect("/dashboard");
+  }
+
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { status },
+  });
+
+  // Notify followers 30 min before match starts
+  if (status === "LIVE") {
+    const followers = await prisma.tournamentFollower.findMany({
+      where: { tournamentId: match.tournamentId },
+      select: { userId: true },
+    });
+
+    if (followers.length > 0) {
+      await prisma.notification.createMany({
+        data: followers.map((f) => ({
+          userId: f.userId,
+          title: "Tekma se začenja!",
+          content: `Tekma na turnirju ${match.tournament.title} je pravkar začela.`,
+        })),
+      });
+    }
+  }
+
+  revalidatePath(`/tournaments/${match.tournament.slug}`);
+  revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
+  revalidatePath(`/t/${match.tournament.slug}`);
+  redirect(`/tournaments/${match.tournament.slug}/matches`);
+}
+
+export async function deleteMatchAction(formData: FormData) {
+  const user = await requireUser();
+  const matchId = getString(formData, "matchId");
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: true },
+  });
+
+  if (!match || match.tournament.organizerId !== user.id) {
+    redirect("/dashboard");
+  }
+
+  await prisma.match.delete({ where: { id: matchId } });
+
+  revalidatePath(`/tournaments/${match.tournament.slug}`);
+  revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
+  revalidatePath(`/t/${match.tournament.slug}`);
+  redirect(`/tournaments/${match.tournament.slug}/matches`);
+}
+
+// ── Follow / Unfollow ────────────────────────────────────────
+
+export async function followTournamentAction(formData: FormData) {
+  const user = await requireUser();
+  const tournamentId = getString(formData, "tournamentId");
+  const teamId = getString(formData, "teamId") || null;
+
+  const existing = await prisma.tournamentFollower.findUnique({
+    where: { userId_tournamentId: { userId: user.id, tournamentId } },
+  });
+
+  if (!existing) {
+    await prisma.tournamentFollower.create({
+      data: { userId: user.id, tournamentId, teamId },
+    });
+  }
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  revalidatePath("/dashboard");
+  if (tournament) revalidatePath(`/tournaments/${tournament.slug}`);
+  redirect(tournament ? `/tournaments/${tournament.slug}` : "/dashboard");
+}
+
+export async function unfollowTournamentAction(formData: FormData) {
+  const user = await requireUser();
+  const tournamentId = getString(formData, "tournamentId");
+
+  await prisma.tournamentFollower.deleteMany({
+    where: { userId: user.id, tournamentId },
+  });
+
+  const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  revalidatePath("/dashboard");
+  if (tournament) revalidatePath(`/tournaments/${tournament.slug}`);
+  redirect(tournament ? `/tournaments/${tournament.slug}` : "/dashboard");
+}
+
+export async function markNotificationsReadAction() {
+  const user = await requireUser();
+
+  await prisma.notification.updateMany({
+    where: { userId: user.id, isRead: false },
+    data: { isRead: true },
+  });
+
+  revalidatePath("/notifications");
+  revalidatePath("/dashboard");
 }
