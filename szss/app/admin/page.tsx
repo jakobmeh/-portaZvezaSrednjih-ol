@@ -1,24 +1,26 @@
 import Link from "next/link";
-import { Shield, Trophy, Users, UserX, Star } from "lucide-react";
+import { Shield, Trophy, Users, UserX, Star, School, ChevronRight, Search, ChevronLeft } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { rejectUserAction, approveUserAction, activateSchoolLicenseAction, grantProAction, revokeProAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/auth";
-import { getAdminData, getAdminLicenses } from "@/lib/data";
+import { getAdminData, getAdminLicenses, getAdminSchoolStats } from "@/lib/data";
 import { formatCompactDate, getApprovalLabel, getTournamentStatus, isProUser } from "@/lib/utils";
 import { SCHOOL_OPTIONS } from "@/lib/schools";
 import { SchoolSelect } from "@/components/school-select";
 import { CopyButton } from "@/components/copy-button";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
   const user = await requireAdmin();
-  const [data, licenses] = await Promise.all([getAdminData(), getAdminLicenses()]);
-
-  // Group users by school
-  const bySchool = new Map<string, typeof data.users>();
-  for (const u of data.users) {
-    if (!bySchool.has(u.schoolName)) bySchool.set(u.schoolName, []);
-    bySchool.get(u.schoolName)!.push(u);
-  }
+  const params = await searchParams;
+  const [data, licenses, schoolStats] = await Promise.all([
+    getAdminData({ q: params.q, page: params.page ? Number(params.page) : 1 }),
+    getAdminLicenses(),
+    getAdminSchoolStats(),
+  ]);
 
   return (
     <AppShell user={user} activePath="/admin" title="Admin panel" description="Upravljanje uporabnikov in šolskih licenc.">
@@ -30,7 +32,7 @@ export default async function AdminPage() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Vsi uporabniki", value: data.users.length, icon: Users, color: "#2baf3a" },
+              { label: "Vsi uporabniki", value: data.totalUsers, icon: Users, color: "#2baf3a" },
               { label: "Turnirji", value: data.tournaments.length, icon: Trophy, color: "#f59e0b" },
               { label: "Aktivne licence", value: licenses.length, icon: Shield, color: "#06b6d4" },
             ].map((s) => (
@@ -41,11 +43,59 @@ export default async function AdminPage() {
             ))}
           </div>
 
-          {/* Uporabniki po šolah */}
+          {/* Šole */}
           <section>
             <h2 className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
-              Uporabniki ({data.users.length})
+              <School size={11} className="inline mr-1.5" />
+              Šole ({schoolStats.length})
             </h2>
+            <div className="overflow-hidden rounded-2xl" style={{ border: "1px solid var(--border)" }}>
+              {schoolStats.map((s, i) => (
+                <Link
+                  key={s.schoolName}
+                  href={`/admin/schools/${encodeURIComponent(s.schoolName)}`}
+                  className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/5"
+                  style={{ background: "var(--bg-surface)", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black" style={{ background: "rgba(43,175,58,0.12)", color: "#6ee77a" }}>
+                    <School size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{s.schoolName}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      {s.total} {s.total === 1 ? "uporabnik" : s.total < 5 ? "uporabniki" : "uporabnikov"}
+                      {s.pro > 0 && <span style={{ color: "#fbbf24" }}> · {s.pro} Pro</span>}
+                      {s.pending > 0 && <span style={{ color: "#f87171" }}> · {s.pending} čaka</span>}
+                    </p>
+                  </div>
+                  <ChevronRight size={14} style={{ color: "var(--text-muted)" }} />
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Zadnji uporabniki */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                Uporabniki ({data.totalUsers})
+              </h2>
+            </div>
+
+            {/* Search */}
+            <form method="GET" className="mb-3">
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+                <input
+                  name="q"
+                  defaultValue={data.q}
+                  placeholder="Išči po imenu, emailu ali šoli…"
+                  className="w-full rounded-xl py-2.5 pl-9 pr-4 text-sm"
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)", outline: "none" }}
+                />
+              </div>
+            </form>
+
             <div className="overflow-hidden rounded-2xl" style={{ border: "1px solid var(--border)" }}>
               {data.users.map((acc, i) => {
                 const pro = acc.isPro && (!acc.proUntil || acc.proUntil > new Date());
@@ -121,6 +171,29 @@ export default async function AdminPage() {
                 );
               })}
             </div>
+
+            {/* Paginacija */}
+            {data.totalPages > 1 && (
+              <div className="flex items-center justify-between mt-3">
+                <Link
+                  href={`/admin?q=${data.q}&page=${data.page - 1}`}
+                  className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${data.page <= 1 ? "pointer-events-none opacity-30" : ""}`}
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                >
+                  <ChevronLeft size={13} /> Prejšnja
+                </Link>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {data.page} / {data.totalPages}
+                </span>
+                <Link
+                  href={`/admin?q=${data.q}&page=${data.page + 1}`}
+                  className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold transition-all ${data.page >= data.totalPages ? "pointer-events-none opacity-30" : ""}`}
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                >
+                  Naslednja <ChevronRight size={13} />
+                </Link>
+              </div>
+            )}
           </section>
 
           {/* Turnirji */}

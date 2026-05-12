@@ -33,20 +33,20 @@ async function main() {
     update: {
       fullName: "Jakob M.",
       passwordHash: hash,
-      schoolName: "Gimnazija Velenje",
+      schoolName: "Elektro in računalniška šola Velenje",
       role: "ADMIN",
       approvalStatus: "APPROVED",
-      isPro: true,
+      isPro: false,
       proUntil: null,
     },
     create: {
       email: "jakobmehmc1@gmail.com",
       fullName: "Jakob M.",
       passwordHash: hash,
-      schoolName: "Gimnazija Velenje",
+      schoolName: "Elektro in računalniška šola Velenje",
       role: "ADMIN",
       approvalStatus: "APPROVED",
-      isPro: true,
+      isPro: false,
     },
   });
 
@@ -56,7 +56,7 @@ async function main() {
   const teamsData = [
     {
       name: "Šarci FC",
-      schoolName: "Gimnazija Velenje",
+      schoolName: "Elektro in računalniška šola Velenje",
       players: ["Luka Novak", "Matej Horvat", "Rok Kovač", "Anže Potočnik", "Miha Zupan", "Jure Lešnik"],
     },
     {
@@ -80,7 +80,7 @@ async function main() {
     const team = await prisma.team.create({
       data: {
         name: td.name,
-        sport: "Futsal",
+        sport: "Nogomet",
         schoolName: td.schoolName,
         createdById: jakob.id,
         players: { create: td.players.map((fullName) => ({ fullName })) },
@@ -94,7 +94,7 @@ async function main() {
   console.log("    Email:  jakobmehmc1@gmail.com");
   console.log("    Geslo:  test1234");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("  3 futsalske ekipe čakajo → ustvari turnir");
+  console.log("  3 nogometne ekipe čakajo → ustvari turnir");
   console.log("  in registriraj ekipe!");
 }
 

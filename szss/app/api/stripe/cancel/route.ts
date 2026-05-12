@@ -22,14 +22,6 @@ export async function POST() {
       cancel_at_period_end: true,
     });
 
-    await prisma.notification.create({
-      data: {
-        userId: user.id,
-        title: "Naročnina preklicana",
-        content: `Pro dostop ostane aktiven do ${user.proUntil ? new Date(user.proUntil).toLocaleDateString("sl-SI") : "konca obdobja"}. Po tem datumu ne bo samodejnega obnovljanja.`,
-      },
-    });
-
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Trophy, Users, Plus, ArrowRight, Zap, Star, CheckCircle } from "lucide-react";
+import { Trophy, Users, Plus, ArrowRight, Zap, Star } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { requireUser } from "@/lib/auth";
 import { getDashboardData } from "@/lib/data";
@@ -7,10 +7,9 @@ import { formatCompactDate, getTournamentStatus, isProUser } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const { notifications, upcoming, teams, stats, myOrganized } =
+  const { upcoming, teams, stats, myOrganized } =
     await getDashboardData(user);
   const pro = isProUser(user);
-  const unread = notifications.filter((n) => !n.isRead).length;
   // Prikaži pozdrav prve 3 minute po registraciji
   const isWelcome = (Date.now() - new Date(user.createdAt).getTime()) < 3 * 60 * 1000;
 
@@ -55,7 +54,7 @@ export default async function DashboardPage() {
           { label: "Turnirji skupaj", value: stats.tournaments, sub: "v sistemu" },
           { label: "Moje prijave", value: stats.joined, sub: "ekip na turnirjih" },
           { label: "Moje ekipe", value: stats.teams, sub: "aktivnih" },
-          { label: "Neprebrana", value: unread, sub: "obvestila", href: "/notifications" },
+          { label: "Sošolci", value: stats.schoolmates, sub: "na šoli" },
         ].map((s) => (
           <div
             key={s.label}
@@ -237,46 +236,6 @@ export default async function DashboardPage() {
                     <span className="text-xs tabular-nums shrink-0" style={{ color: "var(--text-muted)" }}>
                       {team.registrations.length} prijav
                     </span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Obvestila */}
-          <section>
-            <SectionHeader title="Obvestila" href="/notifications" linkLabel="Vsa" />
-            {notifications.length === 0 ? (
-              <Empty text="Ni obvestil." />
-            ) : (
-              <div
-                className="rounded-2xl overflow-hidden"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                {notifications.slice(0, 5).map((n, i) => (
-                  <Link
-                    key={n.id}
-                    href="/notifications"
-                    className="flex items-start gap-3 px-5 py-3.5 transition-colors group"
-                    style={{
-                      background: "var(--bg-surface)",
-                      borderTop: i > 0 ? "1px solid var(--border)" : "none",
-                    }}
-                  >
-                    <div className="mt-1 shrink-0">
-                      {n.isRead
-                        ? <CheckCircle size={13} style={{ color: "var(--text-muted)" }} />
-                        : <span className="block h-2 w-2 rounded-full mt-0.5" style={{ background: "#2baf3a" }} />
-                      }
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium leading-snug" style={{ color: n.isRead ? "var(--text-secondary)" : "var(--text-primary)" }}>
-                        {n.title}
-                      </p>
-                      <p className="text-xs mt-0.5 line-clamp-1" style={{ color: "var(--text-muted)" }}>
-                        {n.content}
-                      </p>
-                    </div>
                   </Link>
                 ))}
               </div>

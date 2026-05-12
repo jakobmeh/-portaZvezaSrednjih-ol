@@ -50,15 +50,6 @@ export async function POST(req: NextRequest) {
         update: { plan: "UNLIMITED", inviteToken: token, expiresAt: proUntil },
       });
 
-      if (userId) {
-        await prisma.notification.create({
-          data: {
-            userId,
-            title: `Šolska licenca aktivirana`,
-            content: `Invite koda za dijake: ${token}. Licenca velja do ${proUntil.toLocaleDateString("sl-SI")}.`,
-          },
-        });
-      }
     }
   }
 
@@ -87,13 +78,6 @@ export async function POST(req: NextRequest) {
       await prisma.user.update({
         where: { id: user.id },
         data: { isPro: false, proUntil: null, stripeSubscriptionId: null },
-      });
-      await prisma.notification.create({
-        data: {
-          userId: user.id,
-          title: "Pro naročnina preklicana",
-          content: "Tvoja Pro naročnina je bila preklicana. Dostop do Pro funkcij je zaključen.",
-        },
       });
     }
   }

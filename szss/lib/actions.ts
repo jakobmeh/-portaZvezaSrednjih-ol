@@ -253,24 +253,6 @@ export async function registerAction(formData: FormData) {
     },
   });
 
-  // Obvesti admina
-  const admins = await prisma.user.findMany({
-    where: { role: UserRole.ADMIN },
-    select: { id: true },
-  });
-  if (admins.length > 0) {
-    const content = inviteValid
-      ? `${fullName} (${schoolName}) se je registriral s šolsko kodo – dobil Pro.`
-      : `${fullName} (${schoolName}) se je registriral brez kode – brezplačen račun.`;
-    await prisma.notification.createMany({
-      data: admins.map((a) => ({
-        userId: a.id,
-        title: "Nov uporabnik",
-        content,
-      })),
-    });
-  }
-
   await createSession(newUser.id);
   redirect("/dashboard");
 }
@@ -529,13 +511,6 @@ export async function joinTournamentAction(formData: FormData) {
       },
     });
 
-    await prisma.notification.create({
-      data: {
-        userId: tournament.organizerId,
-        title: "Nova prijava na turnir",
-        content: `Ekipa ${team.name} se je prijavila na turnir ${tournament.title}.`,
-      },
-    });
   }
 
   revalidatePath("/dashboard");
@@ -554,14 +529,6 @@ export async function approveUserAction(formData: FormData) {
     data: { approvalStatus: ApprovalStatus.APPROVED },
   });
 
-  await prisma.notification.create({
-    data: {
-      userId,
-      title: "Račun odobren",
-      content: "Admin je odobril tvojo registracijo. Zdaj se lahko prijaviš v sistem.",
-    },
-  });
-
   revalidatePath("/admin");
   revalidatePath("/school");
   redirect("/admin");
@@ -574,14 +541,6 @@ export async function rejectUserAction(formData: FormData) {
   await prisma.user.update({
     where: { id: userId },
     data: { approvalStatus: ApprovalStatus.REJECTED },
-  });
-
-  await prisma.notification.create({
-    data: {
-      userId,
-      title: "Registracija zavrnjena",
-      content: "Tvoja registracija je bila zavrnjena. Kontaktiraj administratorja za dodatna pojasnila.",
-    },
   });
 
   revalidatePath("/admin");
@@ -600,9 +559,6 @@ export async function createMessageAction(formData: FormData) {
 
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
-    include: {
-      registrations: { select: { userId: true } },
-    },
   });
 
   if (!tournament) {
@@ -617,22 +573,6 @@ export async function createMessageAction(formData: FormData) {
       content,
     },
   });
-
-  const notifyUserIds = new Set<string>([
-    tournament.organizerId,
-    ...tournament.registrations.map((registration) => registration.userId),
-  ]);
-  notifyUserIds.delete(user.id);
-
-  if (notifyUserIds.size > 0) {
-    await prisma.notification.createMany({
-      data: [...notifyUserIds].map((userId) => ({
-        userId,
-        title: `Novo sporočilo: ${tournament.title}`,
-        content: `${user.fullName}: ${content.slice(0, 120)}`,
-      })),
-    });
-  }
 
   revalidatePath(`/tournaments/${tournament.slug}`);
   revalidatePath(`/tournaments/${tournament.slug}/matches`);
@@ -752,38 +692,6 @@ export async function updateMatchResultAction(formData: FormData) {
     },
   });
 
-  // Notify followers whose team played
-  if (status === "FINISHED" && scoreHome !== null && scoreAway !== null) {
-    const followers = await prisma.tournamentFollower.findMany({
-      where: {
-        tournamentId: match.tournamentId,
-        teamId: { in: [match.homeTeamId, match.awayTeamId] },
-      },
-      select: { userId: true, teamId: true },
-    });
-
-    if (followers.length > 0) {
-      const homeResult = scoreHome > scoreAway ? "zmagala" : scoreHome < scoreAway ? "izgubila" : "remizirala";
-      const awayResult = scoreAway > scoreHome ? "zmagala" : scoreAway < scoreHome ? "izgubila" : "remizirala";
-
-      await prisma.notification.createMany({
-        data: followers.map((f) => {
-          const isHome = f.teamId === match.homeTeamId;
-          const myTeam = isHome ? match.homeTeam.name : match.awayTeam.name;
-          const opponent = isHome ? match.awayTeam.name : match.homeTeam.name;
-          const result = isHome ? homeResult : awayResult;
-          const myScore = isHome ? scoreHome : scoreAway;
-          const oppScore = isHome ? scoreAway : scoreHome;
-          return {
-            userId: f.userId,
-            title: `Rezultat tekme: ${myTeam}`,
-            content: `${myTeam} je ${result} proti ${opponent} (${myScore}:${oppScore}).`,
-          };
-        }),
-      });
-    }
-  }
-
   if (status === "FINISHED") {
     await syncFourTeamKnockoutNextMatches(match.tournamentId);
   }
@@ -811,24 +719,6 @@ export async function setMatchStatusAction(formData: FormData) {
     where: { id: matchId },
     data: { status },
   });
-
-  // Notify followers 30 min before match starts
-  if (status === "LIVE") {
-    const followers = await prisma.tournamentFollower.findMany({
-      where: { tournamentId: match.tournamentId },
-      select: { userId: true },
-    });
-
-    if (followers.length > 0) {
-      await prisma.notification.createMany({
-        data: followers.map((f) => ({
-          userId: f.userId,
-          title: "Tekma se začenja!",
-          content: `Tekma na turnirju ${match.tournament.title} je pravkar začela.`,
-        })),
-      });
-    }
-  }
 
   if (status === "FINISHED") {
     await syncFourTeamKnockoutNextMatches(match.tournamentId);
@@ -978,21 +868,6 @@ export async function completeTournamentAction(formData: FormData) {
     data: { isCompleted: true },
   });
 
-  // Obvesti prijavljene ekipe
-  const registrations = await prisma.tournamentRegistration.findMany({
-    where: { tournamentId },
-    select: { userId: true },
-  });
-  if (registrations.length > 0) {
-    await prisma.notification.createMany({
-      data: registrations.map((r) => ({
-        userId: r.userId,
-        title: `Turnir zaključen: ${tournament.title}`,
-        content: "Rezultati so uradno potrjeni in se štejejo na globalni lestvici.",
-      })),
-    });
-  }
-
   revalidatePath(`/tournaments/${tournament.slug}`);
   revalidatePath("/leaderboard");
   redirect(`/tournaments/${tournament.slug}`);
@@ -1010,18 +885,6 @@ export async function unfollowTournamentAction(formData: FormData) {
   revalidatePath("/dashboard");
   if (tournament) revalidatePath(`/tournaments/${tournament.slug}`);
   redirect(tournament ? `/tournaments/${tournament.slug}` : "/dashboard");
-}
-
-export async function markNotificationsReadAction() {
-  const user = await requireUser();
-
-  await prisma.notification.updateMany({
-    where: { userId: user.id, isRead: false },
-    data: { isRead: true },
-  });
-
-  revalidatePath("/notifications");
-  revalidatePath("/dashboard");
 }
 
 // ── Admin: ročna podelitev Pro ────────────────────────────────

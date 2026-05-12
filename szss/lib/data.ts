@@ -12,7 +12,7 @@ export async function getDashboardData(currentUser: {
   proUntil: Date | null;
 }) {
   const userId = currentUser.id;
-  const canOrganize = currentUser.role === "ADMIN" || currentUser.isPro;
+  const canOrganize = currentUser.isPro;
 
   // Start myOrganized query before Promise.all so all DB queries run in parallel
   const myOrganizedFuture = canOrganize
@@ -24,12 +24,7 @@ export async function getDashboardData(currentUser: {
       })
     : null;
 
-  const [notifications, tournaments, teams, joinedCount, schoolmates] = await Promise.all([
-    prisma.notification.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
+  const [tournaments, teams, joinedCount, schoolmates] = await Promise.all([
     prisma.tournament.findMany({
       include: { registrations: { select: { id: true } } },
       orderBy: { date: "asc" },
@@ -71,10 +66,9 @@ export async function getDashboardData(currentUser: {
     joined: joinedCount,
     teams: teams.length,
     schoolmates,
-    pendingNotifications: notifications.filter((item) => !item.isRead).length,
   };
 
-  return { notifications, upcoming, teams, stats, myOrganized };
+  return { upcoming, teams, stats, myOrganized };
 }
 
 export async function getTournamentList(filters: {
@@ -211,26 +205,48 @@ export async function getSchoolData(userId: string) {
   return { currentUser, schoolUsers, schoolTeams };
 }
 
-export async function getAdminData() {
-  const [pendingUsers, tournaments, users] = await Promise.all([
+const ADMIN_USERS_PER_PAGE = 8;
+
+export async function getAdminData(opts: { q?: string; page?: number } = {}) {
+  const page = Math.max(1, opts.page ?? 1);
+  const q = opts.q?.trim() ?? "";
+  const where = q
+    ? {
+        OR: [
+          { fullName: { contains: q, mode: "insensitive" as const } },
+          { email: { contains: q, mode: "insensitive" as const } },
+          { schoolName: { contains: q, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
+  const [pendingUsers, tournaments, users, totalUsers] = await Promise.all([
     prisma.user.findMany({
       where: { approvalStatus: "PENDING" },
       orderBy: { createdAt: "asc" },
     }),
     prisma.tournament.findMany({
-      include: {
-        organizer: true,
-        registrations: true,
-      },
+      include: { organizer: true, registrations: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.user.findMany({
+      where,
       orderBy: { createdAt: "desc" },
-      take: 8,
+      take: ADMIN_USERS_PER_PAGE,
+      skip: (page - 1) * ADMIN_USERS_PER_PAGE,
     }),
+    prisma.user.count({ where }),
   ]);
 
-  return { pendingUsers, tournaments, users };
+  return {
+    pendingUsers,
+    tournaments,
+    users,
+    totalUsers,
+    totalPages: Math.ceil(totalUsers / ADMIN_USERS_PER_PAGE),
+    page,
+    q,
+  };
 }
 
 export async function getMatchesForTournament(tournamentId: string) {
@@ -241,14 +257,6 @@ export async function getMatchesForTournament(tournamentId: string) {
       awayTeam: { select: { id: true, name: true, schoolName: true } },
     },
     orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
-  });
-}
-
-export async function getNotificationsForUser(userId: string) {
-  return prisma.notification.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
   });
 }
 
@@ -536,6 +544,43 @@ async function getLeaderboardDataOld(sport?: string) {
     recentMatches,
     availableSports,
   };
+}
+
+export async function getAdminSchoolStats() {
+  const [counts, proCounts, pendingCounts] = await Promise.all([
+    prisma.user.groupBy({
+      by: ["schoolName"],
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+    }),
+    prisma.user.groupBy({
+      by: ["schoolName"],
+      where: { isPro: true },
+      _count: { id: true },
+    }),
+    prisma.user.groupBy({
+      by: ["schoolName"],
+      where: { approvalStatus: "PENDING" },
+      _count: { id: true },
+    }),
+  ]);
+
+  const proMap = new Map(proCounts.map((p) => [p.schoolName, p._count.id]));
+  const pendingMap = new Map(pendingCounts.map((p) => [p.schoolName, p._count.id]));
+
+  return counts.map((c) => ({
+    schoolName: c.schoolName,
+    total: c._count.id,
+    pro: proMap.get(c.schoolName) ?? 0,
+    pending: pendingMap.get(c.schoolName) ?? 0,
+  }));
+}
+
+export async function getAdminSchoolDetail(schoolName: string) {
+  return prisma.user.findMany({
+    where: { schoolName },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 export async function getAdminLicenses() {

@@ -13,7 +13,7 @@ export default async function UpgradePage({
   searchParams: Promise<{ payment?: string }>;
 }) {
   const user = await requireUser();
-  const pro = isProUser(user);
+  const pro = user.isPro;
   const params = await searchParams;
   const schoolLicense = await getSchoolLicense(user.schoolName);
 

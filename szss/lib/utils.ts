@@ -298,7 +298,6 @@ export function calculateKnockoutStandings(matches: FinishedMatch[]): StandingRo
 }
 
 export function isProUser(user: { role: UserRole; isPro: boolean; proUntil: Date | null }) {
-  if (user.role === "ADMIN") return true;
   if (!user.isPro) return false;
   if (user.proUntil && user.proUntil < new Date()) return false;
   return true;

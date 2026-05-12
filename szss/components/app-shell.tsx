@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Bell, Building2, LayoutDashboard, LogOut,
+  Building2, LayoutDashboard, LogOut,
   ShieldCheck, Trophy, Users, Zap, BarChart3, Star,
 } from "lucide-react";
 import { logoutAction } from "@/lib/actions";
@@ -100,7 +100,7 @@ export function AppShell({
           <div className="flex items-center gap-2">
 
             {/* Upgrade pill for non-pro */}
-            {!pro && (
+            {!user.isPro && (
               <Link
                 href="/upgrade"
                 className="hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:flex"
@@ -110,7 +110,7 @@ export function AppShell({
                 Pro – 5€
               </Link>
             )}
-            {pro && user.role !== "ADMIN" && (
+            {user.isPro && (
               <span
                 className="hidden items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold sm:flex"
                 style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}
@@ -119,18 +119,6 @@ export function AppShell({
                 Pro
               </span>
             )}
-
-            {/* Notifications */}
-            <Link
-              href="/notifications"
-              className="flex h-8 w-8 items-center justify-center rounded-lg transition-all"
-              style={{
-                background: activePath === "/notifications" ? "rgba(43,175,58,0.12)" : "rgba(255,255,255,0.05)",
-                color: activePath === "/notifications" ? "#6ee77a" : "var(--text-muted)",
-              }}
-            >
-              <Bell size={15} />
-            </Link>
 
             {/* User menu */}
             <div className="flex items-center gap-2 rounded-lg pl-2 pr-3 py-1.5" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)" }}>
