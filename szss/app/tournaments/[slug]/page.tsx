@@ -4,7 +4,7 @@ import { CalendarDays, MapPin, MessageSquare, Send, Trophy, Users, Zap } from "l
 import { AppShell } from "@/components/app-shell";
 import { BracketView } from "@/components/bracket-view";
 import { FormSelect } from "@/components/form-select";
-import { createMessageAction, followTournamentAction, joinTournamentAction, unfollowTournamentAction } from "@/lib/actions";
+import { createMessageAction, joinTournamentAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { getTeamsForUser, getTournamentDetails } from "@/lib/data";
 import { calculateKnockoutStandings, calculateStandings, formatDate, getMatchStatusLabel, getRegistrationLabel, getTournamentFormatLabel, getTournamentStatus, normalizeLabel } from "@/lib/utils";
@@ -253,25 +253,6 @@ export default async function TournamentDetailsPage({ params }: { params: Promis
               </div>
             )}
           </div>
-
-          {/* Follow */}
-          {!isOrganizer && (
-            <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <h2 className="font-black text-sm uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Sledenje</h2>
-              <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>Prejemaj obvestila o tekmah.</p>
-              {following ? (
-                <form action={unfollowTournamentAction}>
-                  <input type="hidden" name="tournamentId" value={tournament.id} />
-                  <button className="btn-ghost w-full py-2.5 text-sm" style={{ color: "#f87171", borderColor: "rgba(239,68,68,0.3)" }}>Prekini sledenje</button>
-                </form>
-              ) : (
-                <form action={followTournamentAction}>
-                  <input type="hidden" name="tournamentId" value={tournament.id} />
-                  <button className="btn-primary w-full py-2.5 text-sm">Sledi turnirju</button>
-                </form>
-              )}
-            </div>
-          )}
 
           {/* Organizer links */}
           {isOrganizer && (

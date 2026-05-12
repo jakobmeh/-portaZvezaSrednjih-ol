@@ -1,4 +1,5 @@
-import { Plus, UserMinus, Users, UserCheck, UserX as UserManual } from "lucide-react";
+import Link from "next/link";
+import { Plus, UserMinus, Users, UserCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SchoolSelect } from "@/components/school-select";
 import { FormSelect } from "@/components/form-select";
@@ -13,10 +14,15 @@ import { requireUser } from "@/lib/auth";
 import { getSchoolData, getTeamsForUser } from "@/lib/data";
 import { SPORTS } from "@/lib/utils";
 
-export default async function TeamsPage({ searchParams }: { searchParams: Promise<{ error?: string; tab?: string; team?: string }> }) {
+const TEAMS_PER_PAGE = 2;
+
+export default async function TeamsPage({ searchParams }: { searchParams: Promise<{ error?: string; tab?: string; team?: string; page?: string }> }) {
   const user = await requireUser();
   const [teams, schoolData] = await Promise.all([getTeamsForUser(user.id), getSchoolData(user.id)]);
   const params = await searchParams;
+  const page = Math.max(1, Number(params.page) || 1);
+  const totalPages = Math.ceil(teams.length / TEAMS_PER_PAGE);
+  const pagedTeams = teams.slice((page - 1) * TEAMS_PER_PAGE, page * TEAMS_PER_PAGE);
 
   return (
     <AppShell
@@ -67,7 +73,8 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
               <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Ustvari svojo prvo ekipo.</p>
             </div>
           ) : (
-            teams.map((team) => {
+            <>
+            {pagedTeams.map((team) => {
               const isCreator = team.createdById === user.id;
               const isMember = team.players.some((p) => p.userId === user.id);
               const availableSchoolmates = schoolData.schoolUsers.filter(
@@ -247,7 +254,27 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
                   </div>
                 </div>
               );
-            })
+            })}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <Link
+                  href={`/teams?page=${page - 1}`}
+                  className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold ${page <= 1 ? "pointer-events-none opacity-30" : ""}`}
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                >
+                  <ChevronLeft size={13} /> Prejšnja
+                </Link>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{page} / {totalPages}</span>
+                <Link
+                  href={`/teams?page=${page + 1}`}
+                  className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold ${page >= totalPages ? "pointer-events-none opacity-30" : ""}`}
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                >
+                  Naslednja <ChevronRight size={13} />
+                </Link>
+              </div>
+            )}
+            </>
           )}
         </div>
       </div>

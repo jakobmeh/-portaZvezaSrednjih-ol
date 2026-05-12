@@ -78,15 +78,6 @@ export default async function CreateTournamentPage({
             <label className="label-text">Opis</label>
             <textarea name="description" className="field" rows={3} placeholder="Kratek opis turnirja..." required />
           </div>
-          <div className="sm:col-span-2">
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <input type="checkbox" name="selfRegistrationEnabled" className="h-4 w-4 accent-indigo-500 rounded" />
-              <div>
-                <span className="text-sm font-bold">Omogoči samoregistracijo</span>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Ekipe se prijavijo same z unikatno QR/URL povezavo</p>
-              </div>
-            </label>
-          </div>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
