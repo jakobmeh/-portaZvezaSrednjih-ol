@@ -31,6 +31,87 @@ function authTarget(_formData: FormData, modal: "login" | "register") {
   return `/${modal}`;
 }
 
+function getFinishedMatchOutcome(match: {
+  homeTeamId: string;
+  awayTeamId: string;
+  scoreHome: number | null;
+  scoreAway: number | null;
+}) {
+  if (match.scoreHome === null || match.scoreAway === null || match.scoreHome === match.scoreAway) return null;
+
+  return match.scoreHome > match.scoreAway
+    ? { winnerId: match.homeTeamId, loserId: match.awayTeamId }
+    : { winnerId: match.awayTeamId, loserId: match.homeTeamId };
+}
+
+function hasSameTeams(
+  match: { homeTeamId: string; awayTeamId: string },
+  homeTeamId: string,
+  awayTeamId: string,
+) {
+  return (
+    (match.homeTeamId === homeTeamId && match.awayTeamId === awayTeamId) ||
+    (match.homeTeamId === awayTeamId && match.awayTeamId === homeTeamId)
+  );
+}
+
+async function syncFourTeamKnockoutNextMatches(tournamentId: string) {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: {
+      registrations: { where: { status: "CONFIRMED" }, select: { teamId: true } },
+      matches: {
+        where: { status: { not: "CANCELLED" } },
+        orderBy: [{ round: "asc" }, { createdAt: "asc" }],
+      },
+    },
+  });
+
+  if (!tournament || tournament.format !== "KNOCKOUT" || tournament.registrations.length !== 4) return;
+
+  const roundOne = tournament.matches.filter((m) => m.round === 1 && m.status === "FINISHED");
+  if (roundOne.length !== 2) return;
+
+  const outcomes = roundOne.map(getFinishedMatchOutcome);
+  if (outcomes.some((outcome) => outcome === null)) return;
+
+  const [first, second] = outcomes as [
+    { winnerId: string; loserId: string },
+    { winnerId: string; loserId: string },
+  ];
+
+  const nextMatches = tournament.matches.filter((m) => m.round === 2);
+
+  async function ensureNextMatch(group: string, homeTeamId: string, awayTeamId: string) {
+    const existing =
+      nextMatches.find((m) => m.group === group) ??
+      nextMatches.find((m) => hasSameTeams(m, homeTeamId, awayTeamId));
+
+    if (!existing) {
+      await prisma.match.create({
+        data: {
+          tournamentId,
+          homeTeamId,
+          awayTeamId,
+          round: 2,
+          group,
+        },
+      });
+      return;
+    }
+
+    if (existing.status === "UPCOMING" && existing.scoreHome === null && existing.scoreAway === null) {
+      await prisma.match.update({
+        where: { id: existing.id },
+        data: { homeTeamId, awayTeamId, group },
+      });
+    }
+  }
+
+  await ensureNextMatch("Finale", first.winnerId, second.winnerId);
+  await ensureNextMatch("Tekma za 3. mesto", first.loserId, second.loserId);
+}
+
 async function saveSchoolCardLocally(file: File) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const extension = path.extname(file.name) || ".jpg";
@@ -211,7 +292,10 @@ export async function createTournamentAction(formData: FormData) {
   const description = getString(formData, "description");
   const maxTeams = Number(getString(formData, "maxTeams"));
   const date = new Date(getString(formData, "date"));
-  const format = (getString(formData, "format") || "GROUP_STAGE") as TournamentFormat;
+  const formatRaw = getString(formData, "format");
+  const format = ["GROUP_STAGE", "KNOCKOUT", "COMBINED"].includes(formatRaw)
+    ? (formatRaw as TournamentFormat)
+    : "KNOCKOUT";
   const selfRegistrationEnabled = getString(formData, "selfRegistrationEnabled") === "on";
 
   if (!title || !sport || !location || !description || !maxTeams || Number.isNaN(date.getTime())) {
@@ -614,6 +698,20 @@ export async function updateMatchResultAction(formData: FormData) {
   const scoreHome = scoreHomeRaw !== "" ? Number(scoreHomeRaw) : null;
   const scoreAway = scoreAwayRaw !== "" ? Number(scoreAwayRaw) : null;
 
+  if (
+    status === "FINISHED" &&
+    match.tournament.format === "KNOCKOUT" &&
+    scoreHome !== null &&
+    scoreAway !== null &&
+    scoreHome === scoreAway
+  ) {
+    redirectWithMessage(
+      `/tournaments/${match.tournament.slug}/matches`,
+      "error",
+      "Pri bracket tekmi ne sme biti remija. Vnesi rezultat z zmagovalcem.",
+    );
+  }
+
   await prisma.match.update({
     where: { id: matchId },
     data: {
@@ -653,6 +751,10 @@ export async function updateMatchResultAction(formData: FormData) {
         }),
       });
     }
+  }
+
+  if (status === "FINISHED") {
+    await syncFourTeamKnockoutNextMatches(match.tournamentId);
   }
 
   revalidatePath(`/tournaments/${match.tournament.slug}`);
@@ -697,6 +799,10 @@ export async function setMatchStatusAction(formData: FormData) {
     }
   }
 
+  if (status === "FINISHED") {
+    await syncFourTeamKnockoutNextMatches(match.tournamentId);
+  }
+
   revalidatePath(`/tournaments/${match.tournament.slug}`);
   revalidatePath(`/tournaments/${match.tournament.slug}/matches`);
   redirect(`/tournaments/${match.tournament.slug}/matches`);
@@ -739,38 +845,26 @@ export async function generateMatchesAction(formData: FormData) {
   const shuffled = [...teams].sort(() => Math.random() - 0.5);
   const matchData: { tournamentId: string; homeTeamId: string; awayTeamId: string; round: number | null; group: string | null }[] = [];
 
-  if (tournament.format === "KNOCKOUT") {
-    for (let i = 0; i + 1 < shuffled.length; i += 2) {
-      matchData.push({
-        tournamentId,
-        homeTeamId: shuffled[i].id,
-        awayTeamId: shuffled[i + 1].id,
-        round: 1,
-        group: null,
-      });
-    }
-  } else {
-    // GROUP_STAGE ali COMBINED: razdeli v skupine po 4
-    const groupSize = Math.ceil(shuffled.length / Math.max(1, Math.ceil(shuffled.length / 4)));
-    const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let groupIdx = 0;
-    for (let start = 0; start < shuffled.length; start += groupSize) {
-      const groupTeams = shuffled.slice(start, start + groupSize);
-      const label = `Skupina ${labels[groupIdx++]}`;
-      for (let i = 0; i < groupTeams.length; i++) {
-        for (let j = i + 1; j < groupTeams.length; j++) {
-          matchData.push({
-            tournamentId,
-            homeTeamId: groupTeams[i].id,
-            awayTeamId: groupTeams[j].id,
-            round: null,
-            group: label,
-          });
-        }
-      }
-    }
+  const largestFullBracket = 2 ** Math.floor(Math.log2(shuffled.length));
+  const playInTeamCount = shuffled.length === largestFullBracket
+    ? shuffled.length
+    : (shuffled.length - largestFullBracket) * 2;
+  const firstRoundTeams = shuffled.slice(-playInTeamCount);
+
+  for (let i = 0; i + 1 < firstRoundTeams.length; i += 2) {
+    matchData.push({
+      tournamentId,
+      homeTeamId: firstRoundTeams[i].id,
+      awayTeamId: firstRoundTeams[i + 1].id,
+      round: 1,
+      group: null,
+    });
   }
 
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { format: "KNOCKOUT" },
+  });
   await prisma.match.createMany({ data: matchData });
 
   revalidatePath(`/tournaments/${tournament.slug}`);

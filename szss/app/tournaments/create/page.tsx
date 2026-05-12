@@ -66,7 +66,7 @@ export default async function CreateTournamentPage({
                   style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
                 >
                   <div className="flex items-center gap-2">
-                    <input type="radio" name="format" value={f.value} defaultChecked={f.value === "GROUP_STAGE"} className="accent-indigo-500" />
+                    <input type="radio" name="format" value={f.value} defaultChecked={f.value === "KNOCKOUT"} className="accent-indigo-500" />
                     <span className="font-bold text-sm">{f.label}</span>
                   </div>
                   <span className="text-xs" style={{ color: "var(--text-muted)" }}>{f.description}</span>

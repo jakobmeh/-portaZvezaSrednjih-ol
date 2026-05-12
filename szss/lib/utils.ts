@@ -14,19 +14,9 @@ export const SPORTS = [
 
 export const TOURNAMENT_FORMATS: { value: TournamentFormat; label: string; description: string }[] = [
   {
-    value: "GROUP_STAGE",
-    label: "Skupinski del",
-    description: "Ekipe igrajo med seboj v skupinah, napredujejo najboljše.",
-  },
-  {
     value: "KNOCKOUT",
     label: "Izločilni boji",
     description: "Poraženec izpade, zmagovalec gre naprej.",
-  },
-  {
-    value: "COMBINED",
-    label: "Kombinirani",
-    description: "Skupinski del sledi izločilnim bojem.",
   },
 ];
 
@@ -194,6 +184,14 @@ export function calculateStandings(
   matches: FinishedMatch[],
   group?: string,
 ): StandingRow[] {
+  return calculateStandingsWithPoints(matches, group, () => 3);
+}
+
+function calculateStandingsWithPoints(
+  matches: FinishedMatch[],
+  group: string | undefined,
+  winnerPoints: (match: FinishedMatch) => number,
+): StandingRow[] {
   const rows = new Map<string, StandingRow>();
 
   function ensure(teamId: string, teamName: string) {
@@ -231,11 +229,11 @@ export function calculateStandings(
 
     if (match.scoreHome > match.scoreAway) {
       home.wins++;
-      home.points += 3;
+      home.points += winnerPoints(match);
       away.losses++;
     } else if (match.scoreHome < match.scoreAway) {
       away.wins++;
-      away.points += 3;
+      away.points += winnerPoints(match);
       home.losses++;
     } else {
       home.draws++;
@@ -256,7 +254,47 @@ export function calculateStandings(
 }
 
 export function calculateKnockoutStandings(matches: FinishedMatch[]): StandingRow[] {
-  return calculateStandings(matches);
+  const rows = calculateStandingsWithPoints(matches, undefined, () => 0);
+  const byTeamId = new Map(rows.map((row) => [row.teamId, row]));
+
+  function outcome(match: FinishedMatch) {
+    if (match.status !== "FINISHED" || match.scoreHome == null || match.scoreAway == null || match.scoreHome === match.scoreAway) {
+      return null;
+    }
+
+    return match.scoreHome > match.scoreAway
+      ? { winnerId: match.homeTeamId, loserId: match.awayTeamId }
+      : { winnerId: match.awayTeamId, loserId: match.homeTeamId };
+  }
+
+  const finished = matches
+    .filter((match) => match.status === "FINISHED" && match.scoreHome != null && match.scoreAway != null)
+    .sort((a, b) => (b.round ?? 0) - (a.round ?? 0));
+
+  const finalMatch = finished.find((match) => match.group === "Finale")
+    ?? finished.find((match) => match.group !== "Tekma za 3. mesto");
+  const thirdPlaceMatch = finished.find((match) => match.group === "Tekma za 3. mesto");
+
+  const finalOutcome = finalMatch ? outcome(finalMatch) : null;
+  if (finalOutcome) {
+    const winner = byTeamId.get(finalOutcome.winnerId);
+    const runnerUp = byTeamId.get(finalOutcome.loserId);
+    if (winner) winner.points = 3;
+    if (runnerUp) runnerUp.points = 2;
+  }
+
+  const thirdPlaceOutcome = thirdPlaceMatch ? outcome(thirdPlaceMatch) : null;
+  if (thirdPlaceOutcome) {
+    const thirdPlace = byTeamId.get(thirdPlaceOutcome.winnerId);
+    if (thirdPlace) thirdPlace.points = 1;
+  }
+
+  return rows.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+    return b.goalsFor - a.goalsFor;
+  });
 }
 
 export function isProUser(user: { role: UserRole; isPro: boolean; proUntil: Date | null }) {

@@ -8,6 +8,7 @@ type BMatch = {
   scoreAway: number | null;
   status: string;
   round: number | null;
+  group?: string | null;
 };
 
 function getRoundLabel(roundIdx: number, totalRounds: number): string {
@@ -19,7 +20,7 @@ function getRoundLabel(roundIdx: number, totalRounds: number): string {
   return `${roundIdx + 1}. krog`;
 }
 
-const CARD_H = 82;
+const CARD_H = 94;
 const CONN_W = 36;
 const CARD_W = 210;
 const HEADER_H = 28;
@@ -46,6 +47,21 @@ function BracketCard({ match }: { match: BMatch }) {
         flexShrink: 0,
       }}
     >
+      {match.group && (
+        <div
+          style={{
+            fontSize: 8,
+            fontWeight: 900,
+            textTransform: "uppercase",
+            color: "var(--text-muted, #64748b)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {match.group}
+        </div>
+      )}
       <Row name={match.homeTeam.name} score={isFinished || isLive ? match.scoreHome : null} win={homeWin} live={isLive} />
       <div style={{ height: 1, background: "var(--border, #e5e7eb)" }} />
       <Row name={match.awayTeam.name} score={isFinished || isLive ? match.scoreAway : null} win={awayWin} live={isLive} />

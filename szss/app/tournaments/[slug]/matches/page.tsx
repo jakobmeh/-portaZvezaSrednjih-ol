@@ -11,9 +11,16 @@ import { getTournamentDetails } from "@/lib/data";
 import { formatDate, getMatchStatusLabel } from "@/lib/utils";
 import { MatchStatus } from "@prisma/client";
 
-export default async function MatchesPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function MatchesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const user = await requireUser();
   const { slug } = await params;
+  const { error } = await searchParams;
   const tournament = await getTournamentDetails(slug);
   if (!tournament) notFound();
   if (tournament.organizerId !== user.id) redirect(`/tournaments/${slug}`);
@@ -60,6 +67,12 @@ export default async function MatchesPage({ params }: { params: Promise<{ slug: 
         </div>
       }
     >
+      {error && (
+        <div className="mb-5 rounded-xl p-3 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+          {error}
+        </div>
+      )}
+
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
 
         {/* Tekme */}
@@ -117,9 +130,7 @@ export default async function MatchesPage({ params }: { params: Promise<{ slug: 
             <div className="rounded-xl p-5" style={{ background: "rgba(43,175,58,0.08)", border: "1px solid rgba(43,175,58,0.35)" }}>
               <p className="text-sm font-black mb-1" style={{ color: "#6ee77a" }}>Generiraj razpored</p>
               <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                {tournament.format === "KNOCKOUT"
-                  ? `${confirmedTeams.length} ekip → naključni pari za 1. krog`
-                  : `${confirmedTeams.length} ekip → ${Math.ceil(confirmedTeams.length / 4)} skupina${Math.ceil(confirmedTeams.length / 4) === 1 ? "" : Math.ceil(confirmedTeams.length / 4) < 5 ? "e" : ""}, round-robin`}
+                {`${confirmedTeams.length} ekip → bracket pari za 1. krog`}
               </p>
               <form action={generateMatchesAction}>
                 <input type="hidden" name="tournamentId" value={tournament.id} />
