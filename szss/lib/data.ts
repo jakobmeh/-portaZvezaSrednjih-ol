@@ -4,78 +4,58 @@ import { ApprovalStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { calculateKnockoutStandings, getTournamentStatus } from "./utils";
 
-export async function getDashboardData(userId: string) {
-  const currentUser = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-  });
+export async function getDashboardData(currentUser: {
+  id: string;
+  schoolName: string;
+  role: string;
+  isPro: boolean;
+  proUntil: Date | null;
+}) {
+  const userId = currentUser.id;
+  const canOrganize = currentUser.role === "ADMIN" || currentUser.isPro;
 
-  const [notifications, tournaments, teams, announcements, myRegistrations, schoolmates, followedTournaments] =
-    await Promise.all([
-      prisma.notification.findMany({
-        where: { userId },
+  // Start myOrganized query before Promise.all so all DB queries run in parallel
+  const myOrganizedFuture = canOrganize
+    ? prisma.tournament.findMany({
+        where: { organizerId: userId },
+        include: { registrations: { select: { id: true } } },
         orderBy: { createdAt: "desc" },
-        take: 4,
-      }),
-      prisma.tournament.findMany({
-        include: {
-          organizer: true,
-          registrations: {
-            include: { team: true },
-          },
-        },
-        orderBy: { date: "asc" },
-        take: 4,
-      }),
-      prisma.team.findMany({
-        where: {
-          OR: [{ createdById: userId }, { players: { some: { userId } } }],
-        },
-        include: { players: true, registrations: true },
-        distinct: ["id"],
-        orderBy: { createdAt: "desc" },
-        take: 4,
-      }),
-      prisma.announcement.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 4,
-      }),
-      prisma.tournamentRegistration.findMany({
-        where: { userId },
-        include: {
-          tournament: {
-            include: { organizer: true, registrations: true },
-          },
-          team: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 4,
-      }),
-      prisma.user.count({
-        where: {
-          schoolName: currentUser.schoolName,
-          approvalStatus: ApprovalStatus.APPROVED,
-        },
-      }),
-      prisma.tournamentFollower.findMany({
-        where: { userId },
-        include: {
-          tournament: {
-            include: {
-              organizer: true,
-              registrations: true,
-              matches: {
-                where: { status: { in: ["UPCOMING", "LIVE"] } },
-                include: { homeTeam: true, awayTeam: true },
-                orderBy: { scheduledAt: "asc" },
-                take: 3,
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 3,
-      }),
-    ]);
+        take: 5,
+      })
+    : null;
+
+  const [notifications, tournaments, teams, joinedCount, schoolmates] = await Promise.all([
+    prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+    prisma.tournament.findMany({
+      include: { registrations: { select: { id: true } } },
+      orderBy: { date: "asc" },
+      take: 4,
+    }),
+    prisma.team.findMany({
+      where: {
+        OR: [{ createdById: userId }, { players: { some: { userId } } }],
+      },
+      include: { players: true, registrations: true },
+      distinct: ["id"],
+      orderBy: { createdAt: "desc" },
+      take: 4,
+    }),
+    prisma.tournamentRegistration.count({ where: { userId } }),
+    prisma.user.count({
+      where: {
+        schoolName: currentUser.schoolName,
+        approvalStatus: ApprovalStatus.APPROVED,
+      },
+    }),
+  ]);
+
+  const myOrganized = myOrganizedFuture
+    ? await myOrganizedFuture
+    : ([] as Awaited<NonNullable<typeof myOrganizedFuture>>);
 
   const upcoming = tournaments.map((tournament) => ({
     ...tournament,
@@ -86,27 +66,15 @@ export async function getDashboardData(userId: string) {
     }),
   }));
 
-  const myOrganized = currentUser.role === "ADMIN" || currentUser.isPro
-    ? await prisma.tournament.findMany({
-        where: { organizerId: userId },
-        include: {
-          registrations: true,
-          matches: { where: { status: "UPCOMING" }, orderBy: { scheduledAt: "asc" }, take: 3 },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      })
-    : [];
-
   const stats = {
     tournaments: upcoming.length,
-    joined: myRegistrations.length,
+    joined: joinedCount,
     teams: teams.length,
     schoolmates,
     pendingNotifications: notifications.filter((item) => !item.isRead).length,
   };
 
-  return { currentUser, notifications, upcoming, teams, announcements, myRegistrations, stats, followedTournaments, myOrganized };
+  return { notifications, upcoming, teams, stats, myOrganized };
 }
 
 export async function getTournamentList(filters: {

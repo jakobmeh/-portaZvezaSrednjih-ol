@@ -364,6 +364,37 @@ export async function createTeamAction(formData: FormData) {
   redirect("/teams");
 }
 
+export async function addManualPlayerAction(formData: FormData) {
+  const user = await requireUser();
+  const teamId = getString(formData, "teamId");
+  const fullName = getString(formData, "fullName");
+  const className = getString(formData, "className");
+  const position = getString(formData, "position");
+
+  if (!fullName) {
+    redirectWithMessage("/teams", "error", "Vnesi ime in priimek igralca.");
+  }
+
+  const team = await prisma.team.findUnique({ where: { id: teamId } });
+
+  if (!team || team.createdById !== user.id) {
+    redirectWithMessage("/teams", "error", "To ekipo lahko ureja samo njen ustvarjalec.");
+  }
+
+  await prisma.teamMember.create({
+    data: {
+      teamId,
+      fullName,
+      className: className || null,
+      position: position || null,
+    },
+  });
+
+  revalidatePath("/teams");
+  revalidatePath("/school");
+  redirect("/teams");
+}
+
 export async function addSchoolmateToTeamAction(formData: FormData) {
   const user = await requireUser();
   const teamId = getString(formData, "teamId");
@@ -999,7 +1030,7 @@ export async function grantProAction(formData: FormData) {
   await requireAdmin();
   const userId = getString(formData, "userId");
   const proUntil = new Date();
-  proUntil.setFullYear(proUntil.getFullYear() + 1);
+  proUntil.setMonth(proUntil.getMonth() + 1);
   await prisma.user.update({
     where: { id: userId },
     data: { isPro: true, proUntil },
@@ -1025,7 +1056,7 @@ export async function activateProAction() {
   const user = await requireUser();
 
   const proUntil = new Date();
-  proUntil.setFullYear(proUntil.getFullYear() + 1);
+  proUntil.setMonth(proUntil.getMonth() + 1);
 
   await prisma.user.update({
     where: { id: user.id },
@@ -1042,14 +1073,14 @@ export async function activateProAction() {
 export async function activateSchoolLicenseAction(formData: FormData) {
   await requireAdmin();
   const schoolName = getString(formData, "schoolName");
-  const plan = getString(formData, "plan") || "STANDARD";
+  const plan = "SCHOOL";
 
   if (!isSchoolOption(schoolName)) {
     redirectWithMessage("/admin", "error", "Neveljavna šola.");
   }
 
   const proUntil = new Date();
-  proUntil.setFullYear(proUntil.getFullYear() + 1);
+  proUntil.setMonth(proUntil.getMonth() + 1);
 
   // Generiraj unikatno invite kodo (6 znakov, velika črka + številke)
   const inviteToken = Array.from({ length: 8 }, () =>

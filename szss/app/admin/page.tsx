@@ -7,6 +7,7 @@ import { getAdminData, getAdminLicenses } from "@/lib/data";
 import { formatCompactDate, getApprovalLabel, getTournamentStatus, isProUser } from "@/lib/utils";
 import { SCHOOL_OPTIONS } from "@/lib/schools";
 import { SchoolSelect } from "@/components/school-select";
+import { CopyButton } from "@/components/copy-button";
 
 export default async function AdminPage() {
   const user = await requireAdmin();
@@ -163,20 +164,25 @@ export default async function AdminPage() {
           <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--bg-surface)", border: "1px solid rgba(245,158,11,0.25)" }}>
             <p className="text-sm font-bold mb-1">Aktiviraj šolski paket</p>
             <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-              Generira unikatno kodo, ki jo šola pošlje dijakom. Dijak jo vnese pri registraciji → dobi Pro.
+              Generira unikatno kodo za šolo. Dijaki jo vnesejo pri registraciji in dobijo Pro dostop.
             </p>
             <form action={activateSchoolLicenseAction} className="space-y-3">
               <div>
                 <label className="label-text">Šola</label>
                 <SchoolSelect schools={SCHOOL_OPTIONS} />
               </div>
-              <div>
-                <label className="label-text">Plan</label>
-                <select name="plan" className="field" defaultValue="STANDARD">
-                  <option value="STANDARD">Standard – do 50 dijakov (49€/leto)</option>
-                  <option value="UNLIMITED">Unlimited – neomejeno (99€/leto)</option>
-                </select>
+
+              {/* Cena */}
+              <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: "var(--bg-card)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>Šolska licenca</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>neomejeno dijakov · 1 leto</p>
+                </div>
+                <p className="text-2xl font-black" style={{ color: "#fbbf24", fontFamily: "var(--font-heading)" }}>
+                  500€<span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>/leto</span>
+                </p>
               </div>
+
               <button className="btn-primary w-full py-2.5 text-sm" style={{ background: "#f59e0b" }}>
                 Aktiviraj &amp; generiraj kodo
               </button>
@@ -191,35 +197,41 @@ export default async function AdminPage() {
             {licenses.length === 0 ? (
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>Ni aktivnih licenc.</p>
             ) : (
-              <div className="overflow-hidden rounded-2xl" style={{ border: "1px solid rgba(245,158,11,0.2)" }}>
-                {licenses.map((lic: any, i: number) => {
+              <div className="space-y-2">
+                {licenses.map((lic: any) => {
                   const expired = lic.expiresAt && new Date(lic.expiresAt) < new Date();
                   return (
                     <div
                       key={lic.id}
-                      className="px-5 py-4"
+                      className="rounded-2xl p-4"
                       style={{
                         background: "var(--bg-surface)",
-                        borderTop: i > 0 ? "1px solid var(--border)" : "none",
-                        opacity: expired ? 0.5 : 1,
+                        border: `1px solid ${expired ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.2)"}`,
+                        opacity: expired ? 0.6 : 1,
                       }}
                     >
-                      <p className="font-semibold text-sm">{lic.schoolName}</p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className="badge badge-pro">{lic.plan}</span>
-                        {lic.expiresAt && (
-                          <span className="text-xs" style={{ color: expired ? "#f87171" : "var(--text-muted)" }}>
-                            {expired ? "Potekla" : "do"} {new Date(lic.expiresAt).toLocaleDateString("sl-SI")}
-                          </span>
-                        )}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div>
+                          <p className="font-semibold text-sm">{lic.schoolName}</p>
+                          {lic.expiresAt && (
+                            <p className="text-xs mt-0.5" style={{ color: expired ? "#f87171" : "var(--text-muted)" }}>
+                              {expired ? "Potekla" : "Velja do"} {new Date(lic.expiresAt).toLocaleDateString("sl-SI")}
+                            </p>
+                          )}
+                        </div>
+                        <p className="text-sm font-black shrink-0" style={{ color: "#fbbf24", fontFamily: "var(--font-heading)" }}>
+                          500€/leto
+                        </p>
                       </div>
                       {lic.inviteToken && (
-                        <div className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "rgba(43,175,58,0.08)", border: "1px solid rgba(43,175,58,0.2)" }}>
-                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>Koda:</span>
-                          <span className="font-black text-sm tracking-widest" style={{ color: "#6ee77a", fontFamily: "monospace" }}>
-                            {lic.inviteToken}
-                          </span>
-                          <span className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>→ pošlji dijakom</span>
+                        <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5" style={{ background: "rgba(43,175,58,0.08)", border: "1px solid rgba(43,175,58,0.2)" }}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>Koda:</span>
+                            <span className="font-black text-sm tracking-widest truncate" style={{ color: "#6ee77a", fontFamily: "monospace" }}>
+                              {lic.inviteToken}
+                            </span>
+                          </div>
+                          <CopyButton code={lic.inviteToken} />
                         </div>
                       )}
                     </div>
@@ -230,15 +242,14 @@ export default async function AdminPage() {
           </div>
 
           {/* Pojasnilo */}
-          <div className="mt-5 rounded-2xl p-4" style={{ background: "rgba(43,175,58,0.05)", border: "1px solid rgba(43,175,58,0.15)" }}>
+          <div className="mt-4 rounded-2xl p-4" style={{ background: "rgba(43,175,58,0.05)", border: "1px solid rgba(43,175,58,0.15)" }}>
             <p className="text-xs font-bold mb-2" style={{ color: "#6ee77a" }}>Kako deluje koda?</p>
-            <ul className="space-y-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+            <ol className="space-y-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
               <li>1. Aktiviraš licenco → sistem generira 8-znakovno kodo</li>
-              <li>2. Kodo pošlješ šoli (npr. <span style={{color:"var(--text-secondary)"}}>XKQM7R2P</span>)</li>
-              <li>3. Dijak pri registraciji vnese kodo + izbere pravo šolo</li>
-              <li>4. Napačna šola ali napačna koda → napaka, brez Pro</li>
-              <li>5. Brez kode → brezplačen račun (admin lahko + Pro ročno)</li>
-            </ul>
+              <li>2. Kodo pošlješ šoli (npr. <span style={{ color: "var(--text-secondary)" }}>XKQM7R2P</span>)</li>
+              <li>3. Dijak vnese kodo pri registraciji → dobi Pro</li>
+              <li>4. Napačna koda ali šola → brez Pro</li>
+            </ol>
           </div>
         </div>
       </div>

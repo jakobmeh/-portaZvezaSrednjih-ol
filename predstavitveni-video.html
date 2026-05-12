@@ -5,420 +5,899 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Predstavitveni video SZSS</title>
   <style>
-    :root {
-      color-scheme: dark;
-      --bg: #07090f;
-      --panel: #151a24;
-      --panel-2: #0f141d;
-      --line: #293241;
-      --text: #f4f7fb;
-      --muted: #8b9ab3;
-      --green: #2bb84a;
-      --green-2: #6ee77a;
-      --amber: #f4b740;
-      --red: #ef4444;
-      --purple: #8b5cf6;
-    }
-
+    :root { color-scheme: dark; }
     * { box-sizing: border-box; }
-
     body {
-      margin: 0;
-      min-height: 100vh;
-      background: #05070c;
-      color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      display: grid;
-      place-items: center;
-      padding: 24px;
+      margin: 0; min-height: 100vh;
+      background: #05070c; color: #f1f5f9;
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+      display: grid; place-items: center; padding: 24px;
     }
-
-    main {
-      width: min(100%, 1320px);
-      display: grid;
-      gap: 14px;
-    }
-
+    main { width: min(100%, 1320px); display: grid; gap: 14px; }
     canvas {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--bg);
-      box-shadow: 0 24px 80px rgba(0,0,0,.45);
+      width: 100%; aspect-ratio: 16/9;
+      border: 1px solid #1e293b; border-radius: 10px;
+      background: #08090f; box-shadow: 0 24px 80px rgba(0,0,0,.5);
     }
-
     .bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 16px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: var(--panel);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 16px;
+      border: 1px solid #1e293b; border-radius: 10px; background: #0e1118;
     }
-
-    .actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     button, a.download {
-      border: 0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      background: var(--green);
-      color: white;
-      font-weight: 800;
-      cursor: pointer;
-      text-decoration: none;
-      font-size: 14px;
+      border: 0; border-radius: 8px; padding: 10px 16px;
+      background: #2baf3a; color: white; font-weight: 800;
+      cursor: pointer; text-decoration: none; font-size: 14px;
     }
-
-    button.secondary {
-      background: #232a37;
-      color: var(--text);
-      border: 1px solid var(--line);
-    }
-
-    button:disabled {
-      opacity: .55;
-      cursor: not-allowed;
-    }
-
-    p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
+    button.secondary { background: #1e293b; color: #94a3b8; border: 1px solid #293241; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    p.status { margin: 0; color: #475569; font-size: 14px; }
   </style>
 </head>
 <body>
-  <main>
-    <canvas id="video" width="1280" height="720"></canvas>
-    <div class="bar">
-      <p id="status">Predogled tece. Klikni izvoz, da brskalnik ustvari video datoteko.</p>
-      <div class="actions">
-        <button id="record">Ustvari video (.webm)</button>
-        <button class="secondary" id="restart">Ponovi predogled</button>
-        <a class="download" id="download" hidden>Prenesi video</a>
-      </div>
+<main>
+  <canvas id="video" width="1280" height="720"></canvas>
+  <div class="bar">
+    <p class="status" id="status">Predogled teče. Klikni "Ustvari video" za izvoz.</p>
+    <div class="actions">
+      <button id="record">⏺ Ustvari video (.webm)</button>
+      <button class="secondary" id="restart">↺ Ponovi</button>
+      <a class="download" id="download" hidden>⬇ Prenesi video</a>
     </div>
-  </main>
+  </div>
+</main>
+<script>
+const canvas = document.getElementById("video");
+const ctx = canvas.getContext("2d");
+const W = 1280, H = 720;
+const FPS = 30;
+const DURATION = 72;
 
-  <script>
-    const canvas = document.getElementById("video");
-    const ctx = canvas.getContext("2d");
-    const recordButton = document.getElementById("record");
-    const restartButton = document.getElementById("restart");
-    const downloadLink = document.getElementById("download");
-    const statusEl = document.getElementById("status");
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const ease  = v => 1 - Math.pow(1 - clamp(v,0,1), 3);
+const easeIn= v => Math.pow(clamp(v,0,1), 2);
+const lerp  = (a,b,t) => a + (b-a)*t;
+const easeIO= v => { v=clamp(v,0,1); return v<.5 ? 2*v*v : 1-Math.pow(-2*v+2,2)/2; };
 
-    const W = canvas.width;
-    const H = canvas.height;
-    const duration = 48;
-    const fps = 30;
-    let start = performance.now();
-    let recording = false;
+function rr(x,y,w,h,r,fill,stroke,lw=1) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
+}
 
-    const scenes = [
-      { from: 0, to: 6, title: "SZSS", subtitle: "Solska sportna tekmovanja na enem mestu", kind: "hero" },
-      { from: 6, to: 13, title: "Nadzorna plosca", subtitle: "Pregled turnirjev, obvestil in ekip", kind: "dashboard" },
-      { from: 13, to: 20, title: "Ustvari turnir", subtitle: "Izberi sport, lokacijo in format bracket", kind: "create" },
-      { from: 20, to: 28, title: "Prijavljene ekipe", subtitle: "Potrjene ekipe se samodejno razporedijo", kind: "teams" },
-      { from: 28, to: 38, title: "Bracket tekme", subtitle: "Zmagovalci gredo v finale, porazenci v tekmo za 3. mesto", kind: "bracket" },
-      { from: 38, to: 44, title: "Rezultati in tocke", subtitle: "1. mesto 3 tocke, 2. mesto 2 tocki, 3. mesto 1 tocka", kind: "leaderboard" },
-      { from: 44, to: 48, title: "Zakljuci turnir", subtitle: "Rezultati se objavijo na lestvici", kind: "finish" },
-    ];
+function t(val,x,y,sz,color="#f1f5f9",weight=700,align="left",baseline="top") {
+  ctx.font=`${weight} ${sz}px Inter, Segoe UI, sans-serif`;
+  ctx.fillStyle=color; ctx.textAlign=align; ctx.textBaseline=baseline;
+  ctx.fillText(val,x,y);
+}
 
-    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-    function ease(v) { return 1 - Math.pow(1 - clamp(v, 0, 1), 3); }
-    function lerp(a, b, t) { return a + (b - a) * t; }
+function badge(label,x,y,bg,color,padX=10) {
+  const w=ctx.measureText(label).width+padX*2;
+  rr(x,y,w,22,11,bg,null);
+  t(label,x+padX,y+5.5,10,color,800,"left","top");
+  return w;
+}
 
-    function roundRect(x, y, w, h, r, fill, stroke) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+function pill(label,x,y,bg,color) {
+  ctx.font="800 10px Inter, Segoe UI, sans-serif";
+  const w=ctx.measureText(label).width+20;
+  rr(x,y,w,20,10,bg,null);
+  t(label,x+10,y+5,10,color,800);
+  return w;
+}
+
+function input(labelTxt,val,x,y,w) {
+  t(labelTxt.toUpperCase(),x,y-18,9,"#475569",900);
+  rr(x,y,w,46,10,"#131720","rgba(255,255,255,0.1)");
+  t(val,x+14,y+15,13,"#f1f5f9",500);
+}
+
+// ── Background ────────────────────────────────────────────────────────────────
+function bg() {
+  const g=ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,"#08090f"); g.addColorStop(1,"#0c1018");
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+
+// ── App Shell Nav ─────────────────────────────────────────────────────────────
+function nav(active="dashboard") {
+  rr(40,20,1200,56,12,"rgba(6,8,15,0.96)","rgba(255,255,255,0.08)");
+  // Logo text
+  ctx.font="900 15px Inter,sans-serif"; ctx.fillStyle="#6ee77a";
+  ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText("ŠZSŠ",64,48);
+  // Nav items
+  const items=[["Nadzorna plošča","/dashboard"],["Turnirji","/tournaments"],
+    ["Lestvice","/leaderboard"],["Ekipe","/teams"],["Moja šola","/school"]];
+  items.forEach(([label,href],i)=>{
+    const isActive=href.includes(active);
+    const x=145+i*148, col=isActive?"#6ee77a":"#475569";
+    if(isActive) rr(x-10,35,ctx.measureText(label).width+20,26,8,"rgba(43,175,58,0.12)",null);
+    t(label,x,40,12,col,isActive?700:500);
+  });
+  // Pro badge
+  pill("⭐ Pro",1040,37,"rgba(245,158,11,0.15)","#fbbf24");
+  // User
+  rr(1096,34,130,28,14,"rgba(255,255,255,0.05)","rgba(255,255,255,0.08)");
+  rr(1104,38,20,20,10,"linear-gradient(135deg,#2baf3a,#0a2c57)".includes("#")?"#2baf3a":"#2baf3a",null);
+  // gradient avatar
+  const av=ctx.createLinearGradient(1104,38,1124,58);
+  av.addColorStop(0,"#2baf3a"); av.addColorStop(1,"#0a2c57");
+  ctx.fillStyle=av; ctx.beginPath(); ctx.arc(1114,48,10,0,Math.PI*2); ctx.fill();
+  t("JM",1114,48,8,"white",900,"center","middle");
+  t("Jakob",1130,41,11,"#94a3b8",500);
+}
+
+function pageHeader(title,sub) {
+  t(title,64,96,30,"#f1f5f9",900);
+  if(sub) t(sub,66,133,13,"#94a3b8",500);
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+function progress(pct) {
+  rr(40,710,1200,5,3,"#1e293b",null);
+  rr(40,710,1200*clamp(pct,0,1),5,3,"#2baf3a",null);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 1 · HERO / LANDING  (0–9s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneHero(l) {
+  const a1=ease(l/1.2), a2=ease((l-0.5)/1.2), a3=ease((l-1.2)/1.2);
+
+  // Glow
+  ctx.save(); ctx.globalAlpha=0.06;
+  const g=ctx.createRadialGradient(640,260,0,640,260,400);
+  g.addColorStop(0,"#2baf3a"); g.addColorStop(1,"transparent");
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.restore();
+
+  // Nav (landing style)
+  ctx.save(); ctx.globalAlpha=a1;
+  rr(0,0,W,64,0,"rgba(6,8,15,0.88)","rgba(255,255,255,0.06)");
+  t("ŠZSŠ",56,24,18,"#6ee77a",900);
+  t("Lestvice",560,24,13,"#94a3b8",600);
+  t("Turnirji",670,24,13,"#94a3b8",600);
+  rr(760,18,80,28,12,"rgba(255,255,255,0.06)","rgba(255,255,255,0.08)");
+  t("Prijava",780,24,12,"#94a3b8",600);
+  rr(860,16,130,32,12,"#2baf3a",null);
+  t("Registracija",876,22,12,"white",700);
+  ctx.restore();
+
+  // Hero text
+  ctx.save(); ctx.globalAlpha=a1;
+  badge("🏆  Uradna platforma ŠZSŠ",560,108,"rgba(43,175,58,0.12)","#6ee77a",14);
+  ctx.restore();
+
+  ctx.save(); ctx.globalAlpha=a2;
+  t("Tekmuj.",200,148,72,"#f1f5f9",900);
+  // gradient "Zmaguji."
+  const gtext=ctx.createLinearGradient(460,148,760,220);
+  gtext.addColorStop(0,"#2baf3a"); gtext.addColorStop(1,"#6ee77a");
+  ctx.font="900 72px Inter,sans-serif"; ctx.fillStyle=gtext; ctx.textBaseline="top";
+  ctx.fillText("Zmaguji.",452,148);
+  t("Pusti sled.",200,232,72,"#f1f5f9",900);
+  t("Platforma za organizacijo šolskih turnirjev v Sloveniji.",200,322,17,"#94a3b8",500);
+  ctx.restore();
+
+  // CTA buttons
+  ctx.save(); ctx.globalAlpha=a3;
+  rr(200,370,200,48,12,"#2baf3a",null);
+  t("Začni brezplačno →",220,387,14,"white",700);
+  rr(416,370,160,48,12,"rgba(255,255,255,0.06)","rgba(255,255,255,0.1)");
+  t("Poglej turnirje",435,387,14,"#94a3b8",600);
+  t("Brezplačna registracija · Ni kreditne kartice",200,432,12,"#475569",500);
+  ctx.restore();
+
+  // Pricing cards (right side)
+  ctx.save(); ctx.globalAlpha=ease((l-1.8)/1.5);
+
+  // Pro card
+  rr(730,120,220,280,16,"rgba(43,175,58,0.08)","rgba(43,175,58,0.3)");
+  t("Pro",752,144,13,"#94a3b8",700);
+  t("5€",752,168,42,"#6ee77a",900);
+  t("/mesec",810,182,13,"#475569",500);
+  const proFeats=["Ustvarjanje turnirjev","QR registracija","Upravljanje tekem","Obvestila sledilcem"];
+  proFeats.forEach((f,i)=>{
+    t("✓",752,228+i*30,11,"#2baf3a",900);
+    t(f,770,228+i*30,11,"#94a3b8",500);
+  });
+  rr(750,368,180,36,10,"#2baf3a",null);
+  t("Kupi Pro",815,380,13,"white",700,"center","top");
+
+  // School license card
+  rr(970,120,240,280,16,"rgba(245,158,11,0.06)","rgba(245,158,11,0.25)");
+  t("🏫  Šolska licenca",988,144,12,"#fbbf24",700);
+  t("500€",988,168,42,"#fbbf24",900);
+  t("/leto",1068,182,13,"#475569",500);
+  t("neomejeno dijakov",988,214,11,"#475569",500);
+  const schFeats=["Pro za celotno šolo","Neomejeno dijakov","Centralno upravljanje","Brez mesečnih plačil"];
+  schFeats.forEach((f,i)=>{
+    t("✓",988,244+i*28,11,"#f59e0b",900);
+    t(f,1004,244+i*28,11,"#94a3b8",500);
+  });
+  rr(988,368,200,36,10,"rgba(245,158,11,0.15)","rgba(245,158,11,0.3)");
+  t("Kontaktiraj nas",1063,380,12,"#fbbf24",700,"center","top");
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 2 · LOGIN  (9–15s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneLogin(l) {
+  const a=ease(l/1);
+  ctx.save(); ctx.globalAlpha=a;
+  rr(390,80,500,480,20,"#0e1118","rgba(255,255,255,0.08)");
+  t("Prijava",540,116,26,"#f1f5f9",900);
+  t("Dobrodošel nazaj.",502,152,14,"#94a3b8",500);
+  input("Email","jakobmehmc1@gmail.com",430,200,420);
+  input("Geslo","••••••••",430,272,420);
+  rr(430,342,420,48,12,"#2baf3a",null);
+  t("Prijavi se",630,358,15,"white",700,"center","top");
+  rr(430,408,420,48,12,"rgba(255,255,255,0.04)","rgba(255,255,255,0.07)");
+  t("Ustvari račun",630,424,14,"#94a3b8",500,"center","top");
+  ctx.restore();
+
+  // Simulate typing cursor after delay
+  if(l>1.5) {
+    ctx.save(); ctx.globalAlpha=ease((l-1.5)/0.5)*(Math.floor(l*2)%2===0?1:0.3);
+    rr(430+14+ctx.measureText("jakobmehmc1@gmail.com").width+2,216,2,18,1,"#2baf3a",null);
+    ctx.restore();
+  }
+
+  // Success flash
+  if(l>4) {
+    ctx.save(); ctx.globalAlpha=ease((l-4)/0.5)*ease((5.5-l)/0.5);
+    rr(390,558,500,48,12,"rgba(43,175,58,0.15)","rgba(43,175,58,0.4)");
+    t("✓  Prijava uspešna — preusmerjam...",524,574,13,"#6ee77a",700,"center","top");
+    ctx.restore();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 3 · DASHBOARD  (15–24s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneDashboard(l) {
+  nav("dashboard");
+  ctx.save(); ctx.globalAlpha=ease(l/0.8);
+
+  // Welcome banner
+  if(l<5) {
+    rr(64,88,1152,56,14,"rgba(43,175,58,0.1)","rgba(43,175,58,0.25)");
+    t("🎉",80,107,20,"white",400);
+    t("Dobrodošel, Jakob!",112,96,15,"#f1f5f9",900);
+    t("Račun je ustvarjen. Pridruži se turnirju ali ustvari ekipo.",112,114,12,"#94a3b8",500);
+    pill("⭐ Pro aktiven",1096,98,"rgba(245,158,11,0.15)","#fbbf24");
+  } else {
+    pageHeader("Zdravo, Jakob","Pregled tekmovanj in aktivnosti");
+  }
+
+  // Stat cards
+  const stats=[["Turnirji skupaj","2","v sistemu"],["Moje prijave","3","ekip"],
+    ["Moje ekipe","4","aktivnih"],["Neprebrana","1","obvestila"]];
+  stats.forEach(([label,val,sub],i)=>{
+    const x=64+i*295, y=160;
+    rr(x,y,278,114,14,"#0e1118","rgba(255,255,255,0.07)");
+    t(label,x+18,y+16,11,"#475569",500);
+    t(val,x+18,y+42,44,"#f1f5f9",900);
+    t(sub,x+18,y+92,11,"#475569",500);
+  });
+
+  // Upcoming tournaments
+  rr(64,294,756,300,14,"#0e1118","rgba(255,255,255,0.07)");
+  t("PRIHAJAJOČI TURNIRJI",82,314,10,"#475569",900);
+  t("Vsi turnirji →",738,314,11,"#2baf3a",700,"right","top");
+  const tourn=[
+    ["Futsal pokal ŠZSŠ","Futsal · Velenje · 20.05.2026","3/8","Odprt","#6ee77a","rgba(43,175,58,0.1)"],
+    ["Košarka 3x3","Košarka · Ljubljana · 28.05.2026","1/4","Odprt","#6ee77a","rgba(43,175,58,0.1)"],
+  ];
+  tourn.forEach(([title,meta,reg,status,sc,sbg],i)=>{
+    const y=342+i*60;
+    if(i>0) { ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(82,y-2); ctx.lineTo(802,y-2); ctx.stroke(); }
+    t(title,82,y+4,13,"#f1f5f9",600);
+    t(meta,82,y+22,11,"#475569",500);
+    t(reg,740,y+10,12,"#475569",500,"right");
+    pill(status,756,y+8,sbg,sc);
+  });
+
+  // Teams sidebar
+  rr(840,294,376,300,14,"#0e1118","rgba(255,255,255,0.07)");
+  t("MOJE EKIPE",858,314,10,"#475569",900);
+  t("Upravljaj →",1178,314,11,"#2baf3a",700,"right","top");
+  const teams=[["Šarci FC","Futsal · 6 članov","⚽"],["Rdeče Zvezde","Futsal · 6 članov","⚽"],["Zmaji","Košarka · 5 članov","🏀"]];
+  teams.forEach(([name,meta,emoji],i)=>{
+    const y=346+i*60;
+    if(i>0){ctx.strokeStyle="rgba(255,255,255,0.06)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(858,y-2);ctx.lineTo(1188,y-2);ctx.stroke();}
+    rr(858,y+2,32,32,10,"rgba(43,175,58,0.08)",null);
+    t(emoji,874,y+10,14,"white",400,"center","top");
+    t(name,900,y+4,13,"#f1f5f9",600);
+    t(meta,900,y+22,11,"#475569",500);
+  });
+
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 4 · EKIPE – ročni vnos članov  (24–36s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneEkipe(l) {
+  nav("teams");
+  pageHeader("Ekipe","Ustvari ekipe in dodaj sošolce.");
+
+  ctx.save(); ctx.globalAlpha=ease(l/0.8);
+
+  // Team card
+  rr(64,160,1152,490,16,"#131720","rgba(255,255,255,0.07)");
+
+  // Header
+  t("Šarci FC",82,180,22,"#f1f5f9",900);
+  badge("Futsal",190,183,"rgba(43,175,58,0.12)","#8ef29a");
+  t("Gimnazija Velenje · ustvaril Jakob M.",82,208,11,"#475569",500);
+  pill("2 prijavi",1108,183,"rgba(255,255,255,0.06)","#94a3b8");
+
+  // Left: Add member forms
+  // --- Registered schoolmate ---
+  rr(82,236,340,186,12,"#0e1118","rgba(255,255,255,0.07)");
+  t("✓",98,256,12,"#6ee77a",900);
+  t("DODAJ SOŠOLCA Z RAČUNOM",114,256,9,"#475569",900);
+  rr(98,280,308,40,8,"#131720","rgba(255,255,255,0.09)");
+  t("Izberi sošolca...",112,296,12,"#475569",500);
+  rr(98,330,308,36,8,"#131720","rgba(255,255,255,0.06)");
+  t("Pozicija (neobvezno)",112,344,12,"#475569",400);
+  rr(98,378,308,36,10,"#2baf3a",null);
+  t("Dodaj",236,390,12,"white",700,"center","top");
+
+  // --- Manual add ---
+  const mA=ease((l-0.3)/0.8);
+  rr(82,434,340,196,12,"#0e1118","rgba(255,255,255,0.07)");
+  ctx.save(); ctx.globalAlpha=mA;
+  t("+",98,454,12,"#475569",900);
+  t("DODAJ ROČNO (BREZ RAČUNA)",114,454,9,"#475569",900);
+  // Name field — animate typing
+  rr(98,476,308,40,8,"#131720","rgba(255,255,255,0.09)");
+  const typed=l>2.5?"Luka Novak":l>1.5?"Luka Nov":l>1?"Luka":l>0.5?"Lu":"";
+  t(typed||"Ime in priimek *",112,492,12,typed?"#f1f5f9":"#475569",typed?500:400);
+  if(l>0.5&&l<5){rr(112+ctx.measureText(typed).width+2,488,2,16,1,"#2baf3a",null);}
+  rr(98,526,148,36,8,"#131720","rgba(255,255,255,0.07)");
+  t(l>3?"3.B":"Razred",112,540,12,l>3?"#f1f5f9":"#475569",l>3?500:400);
+  rr(254,526,152,36,8,"#131720","rgba(255,255,255,0.07)");
+  t("Pozicija",268,540,12,"#475569",400);
+  rr(98,572,308,36,10,"rgba(255,255,255,0.06)","rgba(255,255,255,0.1)");
+  t("Dodaj ročno",236,584,12,"#94a3b8",700,"center","top");
+  ctx.restore();
+
+  // Right: Members list
+  rr(454,236,740,394,12,"#0e1118","rgba(255,255,255,0.07)");
+  t(`ČLANI · ${l>5?7:6}`,472,254,10,"#475569",900);
+
+  const players=[
+    {name:"Jakob M.",sub:"Kapetan",hasAccount:true,you:true},
+    {name:"Luka Novak",sub:"Napadalec",hasAccount:true},
+    {name:"Matej Horvat",sub:"Branilec",hasAccount:true},
+    {name:"Rok Kovač",sub:"Vratar",hasAccount:false},
+    {name:"Anže Potočnik",sub:"Ročno dodan · 2.A",hasAccount:false},
+    {name:"Miha Zupan",sub:"Srednji vezni",hasAccount:true},
+  ];
+
+  // New player appearing
+  const showNew=l>4.8;
+  const allPlayers=showNew ? [...players,{name:"Luka Novak",sub:"Ročno dodan · 3.B",hasAccount:false,new:true}] : players;
+
+  allPlayers.forEach((p,i)=>{
+    const y=282+i*54;
+    if(i>0){ctx.strokeStyle="rgba(255,255,255,0.05)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(472,y-2);ctx.lineTo(1166,y-2);ctx.stroke();}
+
+    const newA=p.new?ease((l-4.8)/0.4):1;
+    ctx.save(); ctx.globalAlpha*=newA;
+
+    // Avatar
+    const avBg=p.hasAccount?"rgba(43,175,58,0.2)":"rgba(255,255,255,0.06)";
+    const avCol=p.hasAccount?"#6ee77a":"#94a3b8";
+    rr(472,y+4,28,28,14,avBg,null);
+    const init=p.name.split(" ").map(n=>n[0]).slice(0,2).join("").toUpperCase();
+    t(init,486,y+10,9,avCol,900,"center","top");
+
+    t(p.name+(p.you?" ":""),510,y+6,13,"#f1f5f9",600);
+    if(p.you){t("ti",510+ctx.measureText(p.name+" ").width,y+6,10,"#6ee77a",900);}
+    t(p.sub,510,y+22,11,"#475569",500);
+
+    // "ročno" tag for manual
+    if(!p.hasAccount){
+      const tw=ctx.measureText("ročno").width+14;
+      rr(1098-tw,y+8,tw,20,6,"rgba(255,255,255,0.05)",null);
+      t("ročno",1098-tw+7,y+12,9,"#475569",700);
     }
 
-    function text(value, x, y, size, color = "#f4f7fb", weight = 700, align = "left") {
-      ctx.font = `${weight} ${size}px Inter, Segoe UI, sans-serif`;
-      ctx.fillStyle = color;
-      ctx.textAlign = align;
-      ctx.textBaseline = "top";
-      ctx.fillText(value, x, y);
-    }
+    ctx.restore();
+  });
 
-    function label(value, x, y, color = "#6ee77a") {
-      roundRect(x, y, ctx.measureText(value).width + 24, 28, 14, "rgba(43,184,74,.16)", "rgba(43,184,74,.4)");
-      text(value, x + 12, y + 7, 11, color, 900);
-    }
+  if(showNew){
+    ctx.save();ctx.globalAlpha=ease((l-4.8)/0.4)*0.7;
+    rr(454,236+allPlayers.length*54-2,740,8,0,"rgba(43,175,58,0.15)",null);
+    ctx.restore();
+  }
 
-    function clear() {
-      const g = ctx.createLinearGradient(0, 0, W, H);
-      g.addColorStop(0, "#07090f");
-      g.addColorStop(.55, "#0b1019");
-      g.addColorStop(1, "#10151f");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = .18;
-      ctx.fillStyle = "#2bb84a";
-      ctx.beginPath();
-      ctx.ellipse(960, 80, 260, 80, -.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
+  ctx.restore();
+}
 
-    function shell() {
-      roundRect(72, 48, 1136, 624, 12, "#0b0f17", "#263041");
-      roundRect(72, 48, 1136, 54, 12, "#101620", "#263041");
-      text("SZSS", 105, 66, 16, "#6ee77a", 900);
-      ["Nadzorna plosca", "Turnirji", "Ekipe", "Lestvice"].forEach((nav, i) => {
-        text(nav, 190 + i * 130, 69, 12, i === 1 ? "#6ee77a" : "#8b9ab3", 700);
-      });
-      label("Pro", 1028, 62, "#f4b740");
-      roundRect(1092, 62, 78, 28, 14, "rgba(255,255,255,.06)", "#263041");
-      text("Jakob", 1114, 69, 11, "#f4f7fb", 700);
-    }
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 5 · USTVARI TURNIR  (36–46s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneTurnir(l) {
+  nav("tournaments");
+  pageHeader("Ustvari turnir","Nastavi podatke, format in odpri prijave.");
 
-    function header(title, subtitle) {
-      text(title, 104, 126, 34, "#f4f7fb", 950);
-      text(subtitle, 106, 168, 14, "#8b9ab3", 600);
-    }
+  ctx.save(); ctx.globalAlpha=ease(l/0.8);
 
-    function hero(local) {
-      const a = ease(local / 2);
-      text("SZSS", 150, 190, 76, "#f4f7fb", 950);
-      text("Solski turnirji, bracketi in lestvice.", 154, 285, 26, "#d7dee9", 750);
-      text("Organiziraj tekmovanje od prijave ekip do koncne razvrstitve.", 156, 330, 18, "#8b9ab3", 600);
-      roundRect(154, 390, 190, 50, 8, "#2bb84a", null);
-      text("Ustvari turnir", 194, 406, 16, "#ffffff", 900);
-      ctx.globalAlpha = a;
-      drawBracket(690, 150, 1, true);
-      ctx.globalAlpha = 1;
-    }
+  rr(64,160,840,460,16,"#131720","rgba(255,255,255,0.07)");
+  input("Naziv turnirja","Futsal pokal ŠZSŠ 2026",82,196,800);
+  input("Šport","Futsal",82,272,380);
+  input("Lokacija","Športna dvorana Velenje",482,272,400);
+  input("Datum","20. 05. 2026",82,346,180);
+  input("Max. ekip","8",280,346,120);
 
-    function dashboard(local) {
-      shell();
-      header("Nadzorna plosca", "Hiter pregled tekmovanj in aktivnosti.");
-      card(104, 220, 230, 120, "Turnirji", "12", "#6ee77a");
-      card(360, 220, 230, 120, "Ekipe", "34", "#f4b740");
-      card(616, 220, 230, 120, "Tekme danes", "8", "#8b5cf6");
-      roundRect(104, 380, 742, 210, 10, "#151a24", "#293241");
-      text("Zadnji turnirji", 130, 406, 16, "#f4f7fb", 900);
-      rows(["Futsal pokal", "Kosarka 3x3", "Odbojka dijaki"], 132, 448, 660);
-      roundRect(884, 220, 266, 370, 10, "#151a24", "#293241");
-      text("Obvestila", 910, 248, 16, "#f4f7fb", 900);
-      rows(["Razpored objavljen", "Rezultat potrjen", "Finale ob 13:30"], 910, 292, 200);
-    }
+  // Format radio
+  t("FORMAT",82,418,9,"#475569",900);
+  ["Skupinska faza","Izločilni boji","Kombinirano"].forEach((f,i)=>{
+    const x=82+i*185, sel=i===1;
+    rr(x,432,174,46,10,sel?"rgba(43,175,58,0.12)":"#0e1118",sel?"rgba(43,175,58,0.4)":"rgba(255,255,255,0.07)");
+    t(f,x+88,450,12,sel?"#6ee77a":"#94a3b8",sel?700:500,"center","top");
+  });
 
-    function createTournament(local) {
-      shell();
-      header("Ustvari turnir", "Nastavi osnovne podatke in bracket format.");
-      roundRect(104, 218, 720, 340, 10, "#151a24", "#293241");
-      input("Naziv turnirja", "Medsolski pokal v futsalu", 136, 260, 640);
-      input("Sport", "Futsal", 136, 342, 300);
-      input("Lokacija", "Sportna dvorana", 476, 342, 300);
-      input("Format", "Izlocilni boji", 136, 424, 300);
-      roundRect(476, 424, 300, 54, 8, "rgba(43,184,74,.12)", "rgba(43,184,74,.5)");
-      text("Bracket je privzet", 500, 442, 16, "#6ee77a", 900);
-      roundRect(136, 500, 180, 44, 8, "#2bb84a", null);
-      text("Ustvari turnir", 170, 513, 15, "#ffffff", 900);
-      drawBracket(900, 236, ease(local / 3), false);
-    }
+  // Self-reg toggle
+  rr(82,498,580,40,10,"rgba(43,175,58,0.06)","rgba(43,175,58,0.2)");
+  t("🔗  Samoregistracija z unikatno QR kodo",98,514,12,"#6ee77a",600);
+  rr(574,506,80,24,12,"#2baf3a",null);
+  t("VKLOP",596,510,10,"white",900,"center","top");
 
-    function teams(local) {
-      shell();
-      header("Prijavljene ekipe", "Potrjene ekipe cakajo na generiranje tekem.");
-      roundRect(104, 220, 780, 300, 10, "#151a24", "#293241");
-      text("PRIJAVLJENE EKIPE", 132, 248, 13, "#8b9ab3", 950);
-      const teams = ["BC Naklo", "Jakob Meh", "SC Kranj", "Gimnazija Kranj"];
-      teams.forEach((name, i) => {
-        const y = 292 + i * 54;
-        roundRect(132, y, 700, 42, 8, "#0f141d", null);
-        text(name, 152, y + 12, 14, "#f4f7fb", 800);
-        label("POTRJENA", 724, y + 7);
-      });
-      roundRect(930, 276, 210, 54, 8, "#2bb84a", null);
-      text("Generiraj tekme", 968, 294, 16, "#fff", 900);
-      drawBracket(924, 376, ease(local / 4), false);
-    }
+  // Submit
+  rr(82,556,200,46,12,"#2baf3a",null);
+  t("Ustvari turnir →",168,570,14,"white",700,"center","top");
 
-    function bracket(local) {
-      shell();
-      header("Bracket tekme", "Rezultati ustvarijo finale in tekmo za 3. mesto.");
-      drawBracket(136, 220, 1, true, local);
-      roundRect(820, 220, 300, 260, 10, "#151a24", "#293241");
-      text("Shrani rezultat", 850, 250, 18, "#f4f7fb", 900);
-      input("Domaca ekipa", "3", 850, 300, 110);
-      input("Gostujoca ekipa", "1", 990, 300, 110);
-      roundRect(850, 392, 250, 46, 8, "#2bb84a", null);
-      text("Ustvari naslednji krog", 884, 406, 14, "#fff", 900);
-    }
+  // Right panel - bracket preview
+  rr(924,160,292,460,16,"#0e1118","rgba(255,255,255,0.07)");
+  t("BRACKET PREDOGLED",944,184,10,"#475569",900);
+  drawMini(944,210,ease(l/3));
 
-    function leaderboard(local) {
-      shell();
-      header("Rezultati in tocke", "Koncnica doloci koncno razvrstitev.");
-      roundRect(150, 228, 820, 310, 10, "#151a24", "#293241");
-      text("LESTVICA", 184, 258, 14, "#8b9ab3", 950);
-      const data = [
-        ["1", "BC Naklo", "3"],
-        ["2", "SC Kranj", "2"],
-        ["3", "Jakob Meh", "1"],
-        ["4", "Gimnazija Kranj", "0"],
-      ];
-      data.forEach((r, i) => {
-        const y = 310 + i * 48;
-        roundRect(184, y, 750, 38, 8, i === 0 ? "rgba(43,184,74,.14)" : "#0f141d", null);
-        text(r[0], 206, y + 10, 14, "#8b9ab3", 900);
-        text(r[1], 260, y + 10, 14, "#f4f7fb", 800);
-        text(r[2] + " tocke", 820, y + 10, 14, i === 0 ? "#6ee77a" : "#f4f7fb", 900);
-      });
-    }
+  ctx.restore();
+}
 
-    function finish(local) {
-      shell();
-      header("Zakljuci turnir", "Uradni rezultati so objavljeni na lestvici.");
-      roundRect(330, 258, 620, 190, 10, "rgba(43,184,74,.12)", "rgba(43,184,74,.45)");
-      text("Turnir zakljucen", 438, 306, 34, "#6ee77a", 950);
-      text("Bracket, rezultati in tocke so shranjeni.", 440, 358, 18, "#d7dee9", 700);
-      roundRect(506, 490, 268, 50, 8, "#2bb84a", null);
-      text("SZSS", 602, 505, 18, "#ffffff", 950);
-    }
+function drawMini(x,y,p) {
+  const q=ease(p);
+  const mW=120, mH=56, gapV=30, col2x=x+160;
+  // Round 1
+  [[x,y,"Šarci FC","BC Rdeče"],[x,y+mH+gapV,"Vulkani U.","4. ekipa"]].forEach(([mx,my,h,a])=>{
+    rr(mx,my,mW,mH,6,"#151a24","#344054");
+    t(h,mx+10,my+12,10,"#d7dee9",600);
+    ctx.strokeStyle="#1e293b";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(mx+6,my+mH/2);ctx.lineTo(mx+mW-6,my+mH/2);ctx.stroke();
+    t(a,mx+10,my+mH/2+8,10,"#94a3b8",500);
+  });
+  // Connectors
+  if(q>0.3){
+    ctx.strokeStyle="rgba(43,175,58,0.5)";ctx.lineWidth=2;ctx.beginPath();
+    const midY=y+mH+gapV/2;
+    ctx.moveTo(x+mW,y+mH/2); ctx.lineTo(x+mW+20*q,y+mH/2);
+    ctx.lineTo(x+mW+20*q,midY); ctx.lineTo(x+mW+40*q,midY);
+    ctx.moveTo(x+mW,y+mH+gapV+mH/2); ctx.lineTo(x+mW+20*q,y+mH+gapV+mH/2);
+    ctx.lineTo(x+mW+20*q,midY); ctx.stroke();
+  }
+  // Final
+  if(q>0.6){
+    ctx.save();ctx.globalAlpha=(q-0.6)/0.4;
+    rr(col2x,y+mH/2+gapV/2-mH/4,mW,mH,6,"#151a24","rgba(43,175,58,0.4)");
+    t("FINALE",col2x+10,y+mH/2+gapV/2-mH/4+8,9,"#6ee77a",900);
+    t("BC Naklo",col2x+10,y+mH/2+gapV/2-mH/4+22,10,"#d7dee9",600);
+    ctx.restore();
+  }
+}
 
-    function card(x, y, w, h, title, value, color) {
-      roundRect(x, y, w, h, 10, "#151a24", "#293241");
-      text(title, x + 22, y + 22, 13, "#8b9ab3", 900);
-      text(value, x + 22, y + 54, 34, color, 950);
-    }
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 6 · BRACKET + LIVE TEKME  (46–60s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneBracket(l) {
+  nav("tournaments");
+  pageHeader("Futsal pokal ŠZSŠ 2026","Izločilni boji · Velenje · 20.05.2026");
 
-    function input(labelText, value, x, y, w) {
-      text(labelText.toUpperCase(), x, y - 22, 10, "#8b9ab3", 900);
-      roundRect(x, y, w, 48, 8, "#1b202b", "#394355");
-      text(value, x + 16, y + 15, 14, "#f4f7fb", 700);
-    }
+  ctx.save(); ctx.globalAlpha=ease(l/0.8);
 
-    function rows(items, x, y, w) {
-      items.forEach((item, i) => {
-        roundRect(x, y + i * 46, w, 36, 8, "#0f141d", null);
-        text(item, x + 16, y + i * 46 + 10, 13, "#f4f7fb", 750);
-      });
-    }
+  // Bracket
+  rr(64,160,720,480,16,"#131720","rgba(255,255,255,0.07)");
+  t("POLFINALE",84,180,10,"#475569",900);
+  t("FINALE",360,180,10,"#475569",900);
+  t("ZA 3. MESTO",360,360,10,"#475569",900);
 
-    function matchCard(x, y, home, away, hs, as, name) {
-      roundRect(x, y, 190, 78, 8, "#151a24", "#344054");
-      if (name) text(name, x + 12, y + 8, 9, "#8b9ab3", 900);
-      text(home, x + 14, y + 24, 13, hs > as ? "#6ee77a" : "#d7dee9", hs > as ? 900 : 650);
-      text(String(hs), x + 162, y + 24, 13, hs > as ? "#6ee77a" : "#d7dee9", 950);
-      ctx.strokeStyle = "#293241";
-      ctx.beginPath();
-      ctx.moveTo(x + 12, y + 48);
-      ctx.lineTo(x + 178, y + 48);
-      ctx.stroke();
-      text(away, x + 14, y + 55, 13, as > hs ? "#6ee77a" : "#d7dee9", as > hs ? 900 : 650);
-      text(String(as), x + 162, y + 55, 13, as > hs ? "#6ee77a" : "#d7dee9", 950);
-    }
+  // Semi 1
+  const s1done=l>3, s1h=s1done?3:0, s1a=s1done?1:0;
+  matchCard(84,202,"Šarci FC","BC Rdeče Zvezde",s1h,s1a,l>3&&l<5);
+  // Semi 2
+  const s2done=l>4, s2h=s2done?2:0, s2a=s2done?0:0;
+  matchCard(84,322,"Vulkani Utd","Zmaji FC",s2h,s2a,l>4&&l<5.5);
 
-    function drawBracket(x, y, progress = 1, full = true, local = 10) {
-      const p = ease(progress);
-      text("POLFINALE", x, y - 30, 10, "#8b9ab3", 900);
-      matchCard(x, y, "BC Naklo", "Jakob Meh", 3, 1, "");
-      matchCard(x, y + 120, "SC Kranj", "Gimnazija", 2, 0, "");
-      ctx.strokeStyle = "rgba(43,184,74,.55)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x + 190, y + 39);
-      ctx.lineTo(x + 255 * p, y + 39);
-      ctx.lineTo(x + 255 * p, y + 99);
-      ctx.lineTo(x + 320 * p, y + 99);
-      ctx.moveTo(x + 190, y + 159);
-      ctx.lineTo(x + 255 * p, y + 159);
-      ctx.lineTo(x + 255 * p, y + 99);
-      ctx.stroke();
-      if (full && local > 3) {
-        text("FINALE", x + 340, y - 30, 10, "#8b9ab3", 900);
-        matchCard(x + 340, y + 58, "BC Naklo", "SC Kranj", local > 7 ? 4 : 0, local > 7 ? 2 : 0, "Finale");
-        text("ZA 3. MESTO", x + 340, y + 160, 10, "#8b9ab3", 900);
-        matchCard(x + 340, y + 190, "Jakob Meh", "Gimnazija", local > 7 ? 2 : 0, local > 7 ? 1 : 0, "Tekma za 3. mesto");
-      }
-    }
+  // Connectors
+  ctx.strokeStyle="rgba(43,175,58,0.45)";ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(274,241);ctx.lineTo(300,241);ctx.lineTo(300,261);ctx.lineTo(360,261);
+  ctx.moveTo(274,361);ctx.lineTo(300,361);ctx.lineTo(300,261);
+  ctx.stroke();
+  // connector for 3rd place
+  ctx.strokeStyle="rgba(255,255,255,0.15)";
+  ctx.beginPath();
+  ctx.moveTo(274,241);ctx.lineTo(300,241);ctx.lineTo(300,401);ctx.lineTo(360,401);
+  ctx.moveTo(274,361);ctx.lineTo(300,361);ctx.lineTo(300,401);
+  ctx.stroke();
 
-    function draw(timeSeconds) {
-      clear();
-      const t = timeSeconds % duration;
-      const scene = scenes.find(s => t >= s.from && t < s.to) ?? scenes[0];
-      const local = t - scene.from;
-      const fadeIn = ease(local / .7);
-      const fadeOut = ease((scene.to - t) / .7);
-      ctx.globalAlpha = Math.min(fadeIn, fadeOut);
-      if (scene.kind === "hero") hero(local);
-      if (scene.kind === "dashboard") dashboard(local);
-      if (scene.kind === "create") createTournament(local);
-      if (scene.kind === "teams") teams(local);
-      if (scene.kind === "bracket") bracket(local);
-      if (scene.kind === "leaderboard") leaderboard(local);
-      if (scene.kind === "finish") finish(local);
-      ctx.globalAlpha = 1;
-      const pct = clamp(t / duration, 0, 1);
-      roundRect(72, 690, 1136, 6, 3, "#202734", null);
-      roundRect(72, 690, 1136 * pct, 6, 3, "#2bb84a", null);
-    }
+  // Final
+  const fdone=l>6, fh=fdone?4:0, fa=fdone?2:0;
+  matchCard(360,220,"Šarci FC","Vulkani Utd",fh,fa,l>6&&l<7.5);
+  // 3rd place
+  const tdone=l>6.5, th=tdone?2:0, ta=tdone?1:0;
+  matchCard(360,380,"BC Rdeče Zvezde","Zmaji FC",th,ta,false);
 
-    function loop(now) {
-      draw((now - start) / 1000);
-      requestAnimationFrame(loop);
-    }
+  // LIVE badge
+  if(l>2&&l<7) {
+    ctx.save();ctx.globalAlpha=0.5+0.5*Math.sin(l*6);
+    pill("● LIVE",64,164,"rgba(239,68,68,0.2)","#f87171");
+    ctx.restore();
+  }
 
-    restartButton.addEventListener("click", () => {
-      start = performance.now();
+  // Right panel: score input
+  rr(804,160,406,480,16,"#131720","rgba(255,255,255,0.07)");
+  t("SHRANI REZULTAT",822,180,10,"#475569",900);
+
+  const match=l<3?"Polfinale 1":l<5?"Polfinale 2":l<6?"Finale":"Finale";
+  const hteam=l<3?"Šarci FC":l<5?"Vulkani Utd":l<6?"Šarci FC":"Šarci FC";
+  const ateam=l<3?"BC Rdeče Zvezde":l<5?"Zmaji FC":l<6?"Vulkani Utd":"Vulkani Utd";
+
+  rr(822,198,368,36,8,"rgba(43,175,58,0.08)","rgba(43,175,58,0.2)");
+  t(match,998,210,12,"#6ee77a",700,"center","top");
+
+  t("Domača ekipa",822,254,10,"#475569",800);
+  rr(822,272,220,50,10,"#0e1118","rgba(255,255,255,0.08)");
+  t(hteam,838,290,13,"#f1f5f9",600);
+
+  t("Gost",1062,254,10,"#475569",800);
+  rr(1062,272,108,50,10,"#0e1118","rgba(255,255,255,0.08)");
+  t(ateam,1072,290,12,"#f1f5f9",600);
+
+  t("Rezultat",822,342,10,"#475569",800);
+  const scoreH=l<3?"":l>3?"3":"";
+  const scoreA=l<3?"":l>3?"1":"";
+  rr(822,358,100,60,10,"rgba(43,175,58,0.06)","rgba(43,175,58,0.3)");
+  t(scoreH||"0",872,376,28,"#6ee77a",900,"center","top");
+  rr(942,358,32,60,0,null,null); t(":",958,376,24,"#475569",900,"center","top");
+  rr(984,358,100,60,10,"rgba(255,255,255,0.04)","rgba(255,255,255,0.08)");
+  t(scoreA||"0",1034,376,28,"#f1f5f9",900,"center","top");
+
+  // Status
+  rr(822,438,368,36,8,"rgba(43,175,58,0.08)","rgba(43,175,58,0.2)");
+  const statusLabel=l<2?"PRIHAJAJOČA":l<6.5?"● V ŽIVO":"✓ ZAKLJUČENA";
+  const statusCol=l<2?"#475569":l<6.5?"#f87171":"#6ee77a";
+  t(statusLabel,998,450,11,statusCol,900,"center","top");
+
+  rr(822,490,368,46,12,"#2baf3a",null);
+  t("Shrani rezultat",998,506,14,"white",700,"center","top");
+
+  ctx.restore();
+}
+
+function matchCard(x,y,home,away,sh,sa,live=false) {
+  const homeW=sh>sa, awayW=sa>sh;
+  rr(x,y,190,98,8,"#151a24","#344054");
+  if(live){
+    ctx.save();ctx.globalAlpha=0.6+0.4*Math.sin(performance.now()/300);
+    pill("LIVE",x+140,y+6,"rgba(239,68,68,0.2)","#f87171");
+    ctx.restore();
+  }
+  t(home,x+12,y+18,12,homeW?"#6ee77a":"#d7dee9",homeW?700:500);
+  if(sh>0) t(String(sh),x+166,y+18,12,homeW?"#6ee77a":"#d7dee9",900,"right","top");
+  ctx.strokeStyle="#1e293b";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x+8,y+50);ctx.lineTo(x+182,y+50);ctx.stroke();
+  t(away,x+12,y+58,12,awayW?"#6ee77a":"#94a3b8",awayW?700:500);
+  if(sa>0) t(String(sa),x+166,y+58,12,awayW?"#6ee77a":"#94a3b8",900,"right","top");
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 7 · LESTVICA  (60–67s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneLestvica(l) {
+  nav("leaderboard");
+  pageHeader("Lestvice","Skupni rezultati vseh zaključenih turnirjev.");
+
+  ctx.save(); ctx.globalAlpha=ease(l/0.8);
+
+  // Sport filter
+  ["Futsal","Košarka","Odbojka","Rokomet"].forEach((s,i)=>{
+    const sel=i===0;
+    rr(64+i*120,158,112,36,10,sel?"rgba(43,175,58,0.12)":"#0e1118",sel?"rgba(43,175,58,0.35)":"rgba(255,255,255,0.07)");
+    t(s,120+i*120,168,13,sel?"#6ee77a":"#475569",sel?700:500,"center","top");
+  });
+
+  // Team leaderboard
+  rr(64,208,756,370,14,"#131720","rgba(255,255,255,0.07)");
+  t("EKIPNA LESTVICA",82,226,10,"#475569",900);
+  // Headers
+  ["#","Ekipa","Šola","T","Z","P","G","Točke"].forEach((h,i)=>{
+    const xs=[82,116,260,468,510,552,594,700];
+    t(h,xs[i],248,10,"#475569",900,i>3?"center":"left");
+  });
+  const teams2=[
+    {r:1,name:"Šarci FC",school:"Gimn. Velenje",t:3,z:3,p:0,g:"+8",pts:9,gold:true},
+    {r:2,name:"Vulkani Utd",school:"Teh. šola Šoštanj",t:3,z:2,p:1,g:"+3",pts:6},
+    {r:3,name:"BC Rdeče Zvezde",school:"ŠC Velenje",t:3,z:1,p:2,g:"-2",pts:3},
+    {r:4,name:"Zmaji FC",school:"Gimn. Velenje",t:3,z:0,p:3,g:"-9",pts:0},
+  ];
+  teams2.forEach((tm,i)=>{
+    const y=272+i*58, bg=tm.gold?"rgba(43,175,58,0.06)":"#0e1118";
+    const ent=ease(clamp((l-i*0.2)/0.5,0,1));
+    ctx.save(); ctx.globalAlpha*=ent;
+    rr(82,y,706,46,8,bg,null);
+    if(tm.gold){
+      ctx.save();ctx.globalAlpha=0.06;
+      const gg=ctx.createLinearGradient(82,y,788,y+46);
+      gg.addColorStop(0,"#2baf3a");gg.addColorStop(1,"transparent");
+      ctx.fillStyle=gg;rr(82,y,706,46,8,null,null);ctx.fill();ctx.restore();
+    }
+    t(String(tm.r),94,y+15,13,tm.gold?"#fbbf24":"#475569",900);
+    if(tm.gold){
+      ctx.save();ctx.globalAlpha=0.9;
+      t("🥇",80,y+12,16,"white",400);ctx.restore();
+    }
+    t(tm.name,116,y+15,13,"#f1f5f9",600);
+    t(tm.school,260,y+15,11,"#475569",500);
+    [tm.t,tm.z,tm.p,tm.g].forEach((v,j)=>{
+      t(String(v),[468,510,552,594][j]+16,y+15,12,"#94a3b8",500,"center","top");
     });
+    rr(680,y+8,80,30,8,tm.pts>0?"rgba(43,175,58,0.1)":"rgba(255,255,255,0.04)",null);
+    t(tm.pts+" točk",720,y+15,12,tm.pts>0?"#6ee77a":"#475569",700,"center","top");
+    ctx.restore();
+  });
 
-    recordButton.addEventListener("click", async () => {
-      if (recording) return;
-      recording = true;
-      recordButton.disabled = true;
-      downloadLink.hidden = true;
-      statusEl.textContent = "Snemam predstavitveni video ...";
+  // School leaderboard
+  rr(840,208,376,370,14,"#131720","rgba(255,255,255,0.07)");
+  t("ŠOLSKA LESTVICA",858,226,10,"#475569",900);
+  [
+    {r:1,name:"Gimn. Velenje",pts:9},
+    {r:2,name:"Teh. šola Šoštanj",pts:6},
+    {r:3,name:"ŠC Velenje",pts:3},
+  ].forEach((s,i)=>{
+    const y=270+i*72;
+    const ent=ease(clamp((l-0.5-i*0.25)/0.5,0,1));
+    ctx.save();ctx.globalAlpha*=ent;
+    rr(858,y,340,56,10,"#0e1118",null);
+    t(`${s.r}.`,870,y+18,16,["#fbbf24","#94a3b8","#f59e0b"][i],900);
+    t(s.name,900,y+18,14,"#f1f5f9",600);
+    rr(1080,y+12,100,32,8,"rgba(43,175,58,0.1)",null);
+    t(s.pts+" točk",1130,y+20,12,"#6ee77a",700,"center","top");
+    ctx.restore();
+  });
 
-      start = performance.now();
-      const chunks = [];
-      const stream = canvas.captureStream(fps);
-      const preferred = [
-        "video/webm;codecs=vp9",
-        "video/webm;codecs=vp8",
-        "video/webm",
-      ].find(type => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(stream, preferred ? { mimeType: preferred, videoBitsPerSecond: 6_000_000 } : undefined);
+  ctx.restore();
+}
 
-      recorder.ondataavailable = event => {
-        if (event.data.size > 0) chunks.push(event.data);
-      };
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 8 · ADMIN PANEL  (67–73s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneAdmin(l) {
+  nav("admin_fake");
+  // Override nav active
+  rr(40,20,1200,56,12,"rgba(6,8,15,0.96)","rgba(255,255,255,0.08)");
+  t("ŠZSŠ",64,33,15,"#6ee77a",900);
+  ["Nadzorna plošča","Turnirji","Lestvice","Ekipe","Moja šola"].forEach((lbl,i)=>{
+    t(lbl,145+i*148,35,12,"#475569",500);
+  });
+  pill("🛡  Admin",775,33,"rgba(239,68,68,0.12)","#f87171");
+  pill("⭐ Pro",860,33,"rgba(245,158,11,0.15)","#fbbf24");
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
-        const url = URL.createObjectURL(blob);
-        downloadLink.href = url;
-        downloadLink.download = "szss-predstavitveni-video.webm";
-        downloadLink.hidden = false;
-        statusEl.textContent = "Video je ustvarjen.";
-        recordButton.disabled = false;
-        recording = false;
-      };
+  pageHeader("Admin panel","Upravljanje uporabnikov in šolskih licenc.");
 
-      recorder.start();
-      setTimeout(() => recorder.stop(), duration * 1000 + 250);
+  ctx.save(); ctx.globalAlpha=ease(l/0.8);
+
+  // Stats
+  [[64,"Vsi uporabniki","2","#2baf3a"],[430,"Turnirji","2","#f59e0b"],[796,"Aktivne licence","1","#06b6d4"]].forEach(([x,lbl,val,col])=>{
+    rr(x,158,350,110,14,"#0e1118","rgba(255,255,255,0.07)");
+    t(lbl,x+18,174,11,"#475569",500);
+    t(val,x+18,196,44,col,900);
+  });
+
+  // Users
+  rr(64,288,742,280,14,"#131720","rgba(255,255,255,0.07)");
+  t("UPORABNIKI (2)",82,306,10,"#475569",900);
+  [
+    {name:"Jakob M.",email:"jakobmehmc1@gmail.com",school:"Gimn. Velenje",isPro:true,isAdmin:true},
+    {name:"Jakob Meh",email:"mahjakob294@gmail.com",school:"ŠC Velenje",isPro:true},
+  ].forEach((u,i)=>{
+    const y=334+i*64;
+    if(i>0){ctx.strokeStyle="rgba(255,255,255,0.05)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(82,y-2);ctx.lineTo(778,y-2);ctx.stroke();}
+    rr(82,y+2,28,28,14,"rgba(43,175,58,0.15)",null);
+    t(u.name.split(" ").map(n=>n[0]).join(""),96,y+8,9,"#6ee77a",900,"center","top");
+    t(u.name,118,y+4,13,"#f1f5f9",600);
+    t(`${u.email} · ${u.school}`,118,y+20,10,"#475569",500);
+    if(u.isPro) pill("⭐ Pro",620,y+8,"rgba(245,158,11,0.12)","#fbbf24");
+    if(u.isAdmin) pill("Admin",668,y+8,"rgba(239,68,68,0.1)","#f87171");
+  });
+
+  // School license panel
+  rr(826,288,390,460,14,"#131720","rgba(255,255,255,0.07)");
+  t("🛡  ŠOLSKE LICENCE",844,306,10,"#475569",900);
+
+  rr(844,324,352,260,12,"#0e1118","rgba(245,158,11,0.2)");
+  t("Aktiviraj šolski paket",862,344,14,"#f1f5f9",700);
+  t("Generira kodo za dijake → dobijo Pro dostop.",862,366,11,"#475569",500);
+
+  // School select
+  t("ŠOLA",862,394,9,"#475569",900);
+  rr(862,408,316,40,8,"#131720","rgba(255,255,255,0.08)");
+  t(l>3?"Gimnazija Velenje":"Izberi šolo...",876,424,12,l>3?"#f1f5f9":"#475569",l>3?500:400);
+
+  // Price card
+  rr(862,462,316,60,10,"rgba(245,158,11,0.08)","rgba(245,158,11,0.25)");
+  t("Šolska licenca",876,474,12,"#94a3b8",500);
+  t("neomejeno dijakov · 1 leto",876,490,10,"#475569",400);
+  t("500€",1108,474,24,"#fbbf24",900,"right","top");
+  t("/leto",1126,484,10,"#475569",400,"right","top");
+
+  // Submit
+  rr(862,536,316,44,10,"#f59e0b",null);
+  t("Aktiviraj & generiraj kodo",1020,550,13,"white",700,"center","top");
+
+  // Active license (appears after activation)
+  if(l>5) {
+    const lA=ease((l-5)/0.8);
+    ctx.save();ctx.globalAlpha=lA;
+    rr(844,600,352,104,12,"#0e1118","rgba(245,158,11,0.2)");
+    t("AKTIVNE LICENCE (1)",862,618,9,"#475569",900);
+    rr(862,636,316,60,10,"#131720",null);
+    t("Gimnazija Velenje",876,648,13,"#f1f5f9",600);
+    t("Velja do 12.06.2026",876,666,10,"#475569",500);
+    t("500€/leto",1170,648,12,"#fbbf24",700,"right","top");
+    // Invite code
+    rr(862,680,316,36,8,"rgba(43,175,58,0.08)","rgba(43,175,58,0.2)");
+    t("Koda:",876,692,10,"#475569",500);
+    t("XKQM7R2P",920,690,13,"#6ee77a",900);
+    // Copy button sim
+    rr(1064,684,104,24,8,"rgba(245,158,11,0.1)","rgba(245,158,11,0.25)");
+    t(l>6.5?"✓ Kopirano!":"⧉ Kopiraj",1116,688,10,l>6.5?"#6ee77a":"#fbbf24",700,"center","top");
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENE 9 · OUTRO  (73–78s)
+// ══════════════════════════════════════════════════════════════════════════════
+function sceneOutro(l) {
+  // Glow
+  ctx.save();ctx.globalAlpha=0.08;
+  const g=ctx.createRadialGradient(640,360,0,640,360,500);
+  g.addColorStop(0,"#2baf3a");g.addColorStop(1,"transparent");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
+
+  const a=ease(l/1.2);
+  ctx.save();ctx.globalAlpha=a;
+
+  // Logo
+  ctx.font="900 48px Inter,sans-serif";
+  const gtext=ctx.createLinearGradient(380,280,900,360);
+  gtext.addColorStop(0,"#2baf3a");gtext.addColorStop(1,"#6ee77a");
+  ctx.fillStyle=gtext;ctx.textAlign="center";ctx.textBaseline="top";
+  ctx.fillText("Športna zveza",640,268);
+  ctx.fillText("srednjih šol",640,322);
+
+  ctx.save();ctx.globalAlpha=ease((l-0.5)/1);
+  t("Organiziraj. Tekmuj. Zmaguj.",640,398,18,"#94a3b8",500,"center","top");
+  t("szss.si",640,430,14,"#2baf3a",700,"center","top");
+  ctx.restore();
+
+  // Feature pills
+  if(l>1.5){
+    const pills=["🏆 Turnirji","⚽ Ekipe","📊 Lestvice","🔴 Live rezultati","🏫 Šolske licence"];
+    const totalW=pills.reduce((acc,p)=>{ctx.font="700 11px Inter,sans-serif";return acc+ctx.measureText(p).width+32+8;},0)-8;
+    let px=640-totalW/2;
+    pills.forEach((p,i)=>{
+      ctx.save();ctx.globalAlpha=ease((l-1.5-i*0.1)/0.5);
+      ctx.font="700 11px Inter,sans-serif";
+      const pw=ctx.measureText(p).width+32;
+      rr(px,490,pw,32,16,"rgba(43,175,58,0.1)","rgba(43,175,58,0.25)");
+      t(p,px+16,498,11,"#6ee77a",700);
+      px+=pw+8;
+      ctx.restore();
     });
+  }
 
-    requestAnimationFrame(loop);
-  </script>
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCENES TABLE
+// ══════════════════════════════════════════════════════════════════════════════
+const TOTAL = 78;
+const scenes = [
+  { from:  0, to:  9, fn: sceneHero,      label: "Landing page & cenik" },
+  { from:  9, to: 15, fn: sceneLogin,     label: "Prijava" },
+  { from: 15, to: 24, fn: sceneDashboard, label: "Nadzorna plošča" },
+  { from: 24, to: 36, fn: sceneEkipe,     label: "Ekipe – ročni vnos" },
+  { from: 36, to: 46, fn: sceneTurnir,    label: "Ustvari turnir" },
+  { from: 46, to: 60, fn: sceneBracket,   label: "Bracket & live tekme" },
+  { from: 60, to: 67, fn: sceneLestvica,  label: "Lestvica" },
+  { from: 67, to: 73, fn: sceneAdmin,     label: "Admin panel" },
+  { from: 73, to: TOTAL, fn: sceneOutro,  label: "Outro" },
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER LOOP
+// ══════════════════════════════════════════════════════════════════════════════
+let startTime = performance.now();
+
+function draw(nowMs) {
+  const t_ = (nowMs - startTime) / 1000;
+  const looped = t_ % TOTAL;
+
+  bg();
+
+  const scene = scenes.find(s => looped >= s.from && looped < s.to) ?? scenes[0];
+  const local = looped - scene.from;
+  const sceneLen = scene.to - scene.from;
+  const fadeIn  = ease(local / 0.6);
+  const fadeOut = ease((sceneLen - local) / 0.5);
+  const alpha   = Math.min(fadeIn, fadeOut);
+
+  ctx.save(); ctx.globalAlpha = alpha;
+  scene.fn(local);
+  ctx.restore();
+
+  progress(looped / TOTAL);
+
+  // Scene label
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  t(scene.label, 56, 700, 10, "#475569", 600);
+  const timeLeft = Math.ceil(TOTAL - looped);
+  t(`${Math.floor(looped)}s / ${TOTAL}s`, W-56, 700, 10, "#475569", 600, "right");
+  ctx.restore();
+}
+
+function loop(now) {
+  draw(now);
+  requestAnimationFrame(loop);
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+document.getElementById("restart").addEventListener("click", () => {
+  startTime = performance.now();
+});
+
+let recording = false;
+document.getElementById("record").addEventListener("click", async () => {
+  if (recording) return;
+  recording = true;
+  document.getElementById("record").disabled = true;
+  document.getElementById("download").hidden = true;
+  document.getElementById("status").textContent = `Snemam ${TOTAL}s video...`;
+
+  startTime = performance.now();
+  const chunks = [];
+  const stream = canvas.captureStream(FPS);
+  const mime = ["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"]
+    .find(m => MediaRecorder.isTypeSupported(m));
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : {});
+  rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  rec.onstop = () => {
+    const blob = new Blob(chunks, { type: rec.mimeType || "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const dl = document.getElementById("download");
+    dl.href = url; dl.download = "szss-predstavitveni-video.webm";
+    dl.hidden = false;
+    document.getElementById("status").textContent = "✓ Video je pripravljen za prenos!";
+    document.getElementById("record").disabled = false;
+    recording = false;
+  };
+  rec.start();
+  setTimeout(() => rec.stop(), TOTAL * 1000 + 300);
+});
+
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>

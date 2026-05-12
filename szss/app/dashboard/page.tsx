@@ -7,8 +7,8 @@ import { formatCompactDate, getTournamentStatus, isProUser } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const { notifications, upcoming, teams, myRegistrations, stats, myOrganized } =
-    await getDashboardData(user.id);
+  const { notifications, upcoming, teams, stats, myOrganized } =
+    await getDashboardData(user);
   const pro = isProUser(user);
   const unread = notifications.filter((n) => !n.isRead).length;
   // Prikaži pozdrav prve 3 minute po registraciji
