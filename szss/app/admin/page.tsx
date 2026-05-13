@@ -130,8 +130,7 @@ export default async function AdminPage({
                       <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                         {formatCompactDate(acc.createdAt)}
                       </span>
-                      {acc.role !== "ADMIN" && (
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5">
                           {/* Pro gumb */}
                           {pro ? (
                             <form action={revokeProAction}>
@@ -148,8 +147,8 @@ export default async function AdminPage({
                               </button>
                             </form>
                           )}
-                          {/* Blokiraj */}
-                          {blocked ? (
+                          {/* Blokiraj – samo za ne-adminov */}
+                          {acc.role !== "ADMIN" && (blocked ? (
                             <form action={approveUserAction}>
                               <input type="hidden" name="userId" value={acc.id} />
                               <button className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-muted)", border: "none", cursor: "pointer" }}>
@@ -163,9 +162,8 @@ export default async function AdminPage({
                                 <UserX size={11} className="inline" />
                               </button>
                             </form>
-                          )}
+                          ))}
                         </div>
-                      )}
                     </div>
                   </div>
                 );
