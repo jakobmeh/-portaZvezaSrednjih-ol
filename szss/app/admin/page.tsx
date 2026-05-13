@@ -247,10 +247,10 @@ export default async function AdminPage({
               <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: "var(--bg-card)", border: "1px solid rgba(245,158,11,0.3)" }}>
                 <div>
                   <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>Šolska licenca</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>neomejeno dijakov · 1 leto</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>neomejeno dijakov · 1 mesec</p>
                 </div>
                 <p className="text-2xl font-black" style={{ color: "#fbbf24", fontFamily: "var(--font-heading)" }}>
-                  500€<span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>/leto</span>
+                  500€<span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>/mesec</span>
                 </p>
               </div>
 
@@ -291,7 +291,7 @@ export default async function AdminPage({
                           )}
                         </div>
                         <p className="text-sm font-black shrink-0" style={{ color: "#fbbf24", fontFamily: "var(--font-heading)" }}>
-                          500€/leto
+                          500€/mesec
                         </p>
                       </div>
                       {lic.inviteToken && (

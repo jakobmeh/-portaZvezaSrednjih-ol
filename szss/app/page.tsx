@@ -190,7 +190,7 @@ export default async function LandingPage() {
             <div className="card flex flex-col" style={{ borderColor: "rgba(245,158,11,0.25)" }}>
               <div className="badge badge-pro mb-4 self-start"><Shield size={9} />Šolska licenca</div>
               <div className="text-4xl font-black gradient-text-gold" style={{ fontFamily: "var(--font-heading)" }}>500€</div>
-              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>letno · neomejeno dijakov</p>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>mesečno · neomejeno dijakov</p>
               <ul className="mt-6 space-y-3 text-sm flex-1" style={{ color: "var(--text-secondary)" }}>
                 {["Pro za celotno šolo", "Neomejeno dijakov", "Centralno upravljanje", "Prioritetna podpora", "Brez mesečnih plačil"].map(item => (
                   <li key={item} className="flex items-center gap-2"><span style={{ color: "#fbbf24" }}>✓</span> {item}</li>

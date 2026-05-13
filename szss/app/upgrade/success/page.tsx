@@ -58,7 +58,7 @@ export default async function UpgradeSuccessPage({
     if (!license) {
       // Webhook še ni delal - aktiviraj sami
       const proUntil = new Date();
-      proUntil.setFullYear(proUntil.getFullYear() + 1);
+      proUntil.setMonth(proUntil.getMonth() + 1);
       const token = Array.from({ length: 8 }, () =>
         "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]
       ).join("");
@@ -92,7 +92,7 @@ export default async function UpgradeSuccessPage({
           </h2>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {activationType === "school"
-              ? `Šola ${schoolName} ima zdaj Pro dostop za 1 leto.`
+              ? `Šola ${schoolName} ima zdaj Pro dostop za 1 mesec.`
               : "Imaš Pro dostop za 1 mesec."}
           </p>
         </div>
@@ -125,7 +125,7 @@ export default async function UpgradeSuccessPage({
             <div className="rounded-xl p-3 text-xs space-y-1" style={{ background: "rgba(245,158,11,0.06)", color: "var(--text-muted)" }}>
               <p>📋 Kodo najdeš tudi v <strong style={{ color: "var(--text-secondary)" }}>Admin panelu</strong> pod "Šolske licence"</p>
               <p>📧 Pošlji jo dijakom po e-pošti ali jo objavi na oglasni deski</p>
-              <p>⏰ Koda velja 1 leto od danes</p>
+              <p>⏰ Koda velja 1 mesec od danes</p>
             </div>
           </div>
         )}

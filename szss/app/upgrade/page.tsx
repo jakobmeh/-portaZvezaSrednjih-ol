@@ -104,9 +104,9 @@ export default async function UpgradePage({
             ) : (
               <>
                 <div className="text-4xl font-black gradient-text-gold mb-1" style={{ fontFamily: "var(--font-heading)" }}>500€</div>
-                <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>letno · cela šola · neomejeno dijakov</p>
+                <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>mesečno · cela šola · neomejeno dijakov</p>
                 <ul className="space-y-2 flex-1 mb-5">
-                  {["Pro za vse dijake šole", "Invite koda za dijake", "Novi dijaki dobijo Pro ob registraciji", "1 leto dostopa"].map((f) => (
+                  {["Pro za vse dijake šole", "Invite koda za dijake", "Novi dijaki dobijo Pro ob registraciji", "1 mesec dostopa"].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
                       <Check size={12} style={{ color: "#fbbf24" }} /> {f}
                     </li>
@@ -118,7 +118,7 @@ export default async function UpgradePage({
                   className="btn-primary w-full py-2.5 text-sm"
                   style={{ background: "#f59e0b" }}
                 >
-                  <Shield size={13} /> Kupi za šolo – 500€ / leto
+                  <Shield size={13} /> Kupi za šolo – 500€ / mesec
                 </StripeCheckoutButton>
                 <p className="mt-2 text-xs text-center" style={{ color: "var(--text-muted)" }}>
                   Za: <strong style={{ color: "var(--text-secondary)" }}>{user.schoolName}</strong>
@@ -195,12 +195,12 @@ export default async function UpgradePage({
             ) : (
               <>
                 <div className="text-5xl font-black gradient-text-gold mb-1" style={{ fontFamily: "var(--font-heading)" }}>500€</div>
-                <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>letno · cela šola · neomejeno dijakov</p>
+                <p className="text-sm mb-2" style={{ color: "var(--text-muted)" }}>mesečno · cela šola · neomejeno dijakov</p>
                 <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>
                   Celotna šola dobi Pro dostop. Prejmeš invite kodo za dijake.
                 </p>
                 <ul className="space-y-2 flex-1 mb-5">
-                  {["Pro za vse dijake šole", "Invite koda za šolo", "Novi dijaki dobijo Pro ob registraciji", "1 leto dostopa"].map((f) => (
+                  {["Pro za vse dijake šole", "Invite koda za šolo", "Novi dijaki dobijo Pro ob registraciji", "1 mesec dostopa"].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
                       <Check size={12} style={{ color: "#fbbf24" }} /> {f}
                     </li>
@@ -212,7 +212,7 @@ export default async function UpgradePage({
                   className="btn-primary w-full py-2.5 text-sm"
                   style={{ background: "#f59e0b" }}
                 >
-                  <Shield size={13} /> Kupi za šolo – 500€ / leto
+                  <Shield size={13} /> Kupi za šolo – 500€ / mesec
                 </StripeCheckoutButton>
                 <p className="mt-2 text-xs text-center" style={{ color: "var(--text-muted)" }}>
                   Za: <strong style={{ color: "var(--text-secondary)" }}>{user.schoolName}</strong>

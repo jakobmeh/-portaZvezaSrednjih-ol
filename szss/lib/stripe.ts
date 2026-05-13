@@ -28,9 +28,9 @@ export const PRICES = {
     description: "1 mesec Pro dostopa. Ustvari turnirje, upravljaj tekme.",
   },
   SCHOOL: {
-    amount: 50000,  // 500.00 EUR – 1 leto za celo šolo
+    amount: 50000,  // 500.00 EUR – 1 mesec za celo šolo
     currency: "eur",
     name: "ŠZSŠ Šolska licenca",
-    description: "Pro za vse dijake šole za 1 leto. Invite koda za dijake.",
+    description: "Pro za vse dijake šole za 1 mesec. Invite koda za dijake.",
   },
 } as const;
