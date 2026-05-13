@@ -5,7 +5,7 @@ import {
   ShieldCheck, Trophy, Users, Zap, BarChart3, Star,
 } from "lucide-react";
 import { logoutAction } from "@/lib/actions";
-import { isProUser } from "@/lib/utils";
+
 
 type ShellUser = {
   fullName: string;
@@ -39,8 +39,6 @@ export function AppShell({
   children: React.ReactNode;
   actions?: React.ReactNode;
 }) {
-  const pro = isProUser(user);
-
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-base)", color: "var(--text-primary)" }}>
 
@@ -111,13 +109,14 @@ export function AppShell({
               </Link>
             )}
             {user.isPro && (
-              <span
+              <Link
+                href="/upgrade"
                 className="hidden items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold sm:flex"
                 style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}
               >
                 <Star size={10} />
                 Pro
-              </span>
+              </Link>
             )}
 
             {/* User menu */}

@@ -4,7 +4,6 @@ import { AppShell } from "@/components/app-shell";
 import { StripeCheckoutButton } from "@/components/stripe-checkout-button";
 import { CancelSubscriptionButton } from "@/components/cancel-subscription-button";
 import { requireUser } from "@/lib/auth";
-import { isProUser } from "@/lib/utils";
 import { getSchoolLicense } from "@/lib/data";
 
 export default async function UpgradePage({
@@ -132,7 +131,7 @@ export default async function UpgradePage({
         <div className="grid gap-5 max-w-4xl md:grid-cols-2">
 
           {/* Individualni Pro */}
-          <div className="relative flex flex-col rounded-2xl p-6" style={{ background: "linear-gradient(135deg, rgba(43,175,58,0.15) 0%, rgba(43,175,58,0.06) 100%)", border: "1px solid rgba(43,175,58,0.35)" }}>
+          <div className="relative flex flex-col rounded-2xl px-6 pb-6 pt-9" style={{ background: "linear-gradient(135deg, rgba(43,175,58,0.15) 0%, rgba(43,175,58,0.06) 100%)", border: "1px solid rgba(43,175,58,0.35)" }}>
             <div className="absolute -top-3 left-6">
               <span className="badge badge-green px-3 py-1">Za posameznike</span>
             </div>
